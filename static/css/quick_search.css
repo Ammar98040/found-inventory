@@ -1,0 +1,218 @@
+/* نافذة البحث السريع */
+#quick-search-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    z-index: 10000;
+    backdrop-filter: blur(5px);
+}
+
+#quick-search-overlay.show {
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding-top: 10%;
+}
+
+#quick-search-modal {
+    background: white;
+    border-radius: 16px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    width: 90%;
+    max-width: 600px;
+    max-height: 70vh;
+    overflow: hidden;
+    animation: slideDown 0.3s ease;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* رأس نافذة البحث */
+#quick-search-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    padding: 20px;
+    color: white;
+}
+
+#quick-search-header h2 {
+    margin: 0;
+    font-size: 1.3rem;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+/* شريط البحث */
+#quick-search-input-container {
+    padding: 20px;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+#quick-search-input {
+    width: 100%;
+    padding: 15px 20px;
+    font-size: 1.1rem;
+    border: 2px solid #e2e8f0;
+    border-radius: 10px;
+    outline: none;
+    transition: all 0.3s;
+}
+
+#quick-search-input:focus {
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+/* نتائج البحث */
+#quick-search-results {
+    max-height: 400px;
+    overflow-y: auto;
+    padding: 10px;
+}
+
+.search-result-category {
+    margin-bottom: 20px;
+}
+
+.search-result-category-title {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #64748b;
+    padding: 10px 15px;
+    background: #f1f5f9;
+    border-radius: 8px;
+    margin-bottom: 10px;
+}
+
+.search-result-item {
+    padding: 15px;
+    border-radius: 10px;
+    margin-bottom: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: 1px solid #e2e8f0;
+}
+
+.search-result-item:hover {
+    background: #f8fafc;
+    border-color: #667eea;
+    transform: translateX(5px);
+}
+
+.search-result-item .result-icon {
+    font-size: 1.5rem;
+    margin-right: 15px;
+}
+
+.search-result-item .result-content {
+    flex: 1;
+}
+
+.search-result-item .result-title {
+    font-weight: 600;
+    color: #1e293b;
+    margin-bottom: 5px;
+}
+
+.search-result-item .result-subtitle {
+    font-size: 0.85rem;
+    color: #64748b;
+}
+
+.search-result-item .result-badge {
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    background: #667eea;
+    color: white;
+}
+
+/* حالة لا توجد نتائج */
+.no-results {
+    padding: 40px 20px;
+    text-align: center;
+    color: #94a3b8;
+}
+
+.no-results-icon {
+    font-size: 3rem;
+    margin-bottom: 10px;
+}
+
+/* اختصارات لوحة المفاتيح */
+#quick-search-shortcuts {
+    padding: 15px 20px;
+    background: #f8fafc;
+    border-top: 1px solid #e2e8f0;
+    font-size: 0.8rem;
+    color: #64748b;
+}
+
+.shortcut-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    margin-right: 15px;
+}
+
+.shortcut-key {
+    background: white;
+    border: 1px solid #cbd5e1;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-family: monospace;
+    font-weight: 600;
+}
+
+/* Response Design */
+@media (max-width: 768px) {
+    #quick-search-modal {
+        width: 95%;
+        max-height: 80vh;
+    }
+    
+    #quick-search-header {
+        padding: 15px;
+    }
+    
+    #quick-search-input-container {
+        padding: 15px;
+    }
+    
+    #quick-search-results {
+        max-height: 300px;
+    }
+}
+
+/* Scrollbar */
+#quick-search-results::-webkit-scrollbar {
+    width: 8px;
+}
+
+#quick-search-results::-webkit-scrollbar-track {
+    background: #f1f5f9;
+}
+
+#quick-search-results::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 4px;
+}
+
+#quick-search-results::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+}
+

@@ -6,18 +6,19 @@
     <title>نظام إدارة المستودع - البحث عن المنتجات</title>
     {% load static %}
     <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    <link rel="stylesheet" href="{% static 'css/sidebar.css' %}">
+    <link rel="stylesheet" href="{% static 'css/quick_search.css' %}">
+    <link rel="stylesheet" href="{% static 'css/notifications.css' %}">
+    
+    <!-- مكتبات PDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 </head>
 <body>
     <div class="container">
         <header>
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
                 <h1>🔍 نظام إدارة المستودع</h1>
-                <div style="display: flex; gap: 10px;">
-                    <a href="/dashboard/" class="btn btn-secondary">📊 لوحة التحكم</a>
-                    <a href="/products/" class="btn btn-secondary">📦 المنتجات</a>
-                    <a href="/manage/" class="btn btn-secondary">⚙️ إدارة المستودع</a>
-                    <a href="/audit-logs/" class="btn btn-secondary">📋 السجلات</a>
-                </div>
             </div>
             <p class="subtitle">ابحث عن المنتجات بسرعة من خلال أرقامها</p>
         </header>
@@ -53,7 +54,15 @@
             <div id="results-section" class="results-section" style="display: none;">
                 <div class="results-header">
                     <h2>📦 نتائج البحث</h2>
-                    <span id="results-count" class="badge"></span>
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        <span id="results-count" class="badge"></span>
+                        <button onclick="exportToPDF()" class="btn btn-primary" id="pdf-btn" style="background: #ef4444;">
+                            📄 تصدير PDF
+                        </button>
+                        <button onclick="printLocations()" class="btn btn-success" id="print-btn" style="background: #10b981;">
+                            🖨️ طباعة
+                        </button>
+                    </div>
                 </div>
                 <div id="results-container"></div>
             </div>
@@ -76,7 +85,234 @@
         <div id="error-message" class="alert alert-error" style="display: none;"></div>
     </div>
 
+    <!-- Sidebar -->
+    <button id="sidebar-toggle" onclick="toggleSidebar()">☰</button>
+    
+    <div id="sidebar-overlay"></div>
+    
+    <div id="main-sidebar">
+        <div class="sidebar-header">
+            <h2>🧭 القوائم</h2>
+            <button class="sidebar-close" onclick="toggleSidebar()">×</button>
+        </div>
+        
+        <!-- حقل البحث -->
+        <div class="sidebar-search">
+            <input type="text" id="sidebar-search-input" placeholder="🔍 ابحث في القوائم..." autocomplete="off">
+            <div id="sidebar-search-results"></div>
+        </div>
+        
+        <div class="sidebar-content" id="sidebar-main-content">
+            <div class="sidebar-section">
+                <div class="sidebar-title">الرئيسية</div>
+                <a href="/" class="sidebar-link">
+                    <span class="icon">🔍</span>
+                    <span class="text">البحث عن المنتجات</span>
+                </a>
+                <a href="/dashboard/" class="sidebar-link">
+                    <span class="icon">📊</span>
+                    <span class="text">لوحة التحكم</span>
+                </a>
+            </div>
+            
+            <div class="sidebar-section">
+                <div class="sidebar-title">إدارة المنتجات</div>
+                <a href="/products/" class="sidebar-link">
+                    <span class="icon">📦</span>
+                    <span class="text">قائمة المنتجات</span>
+                </a>
+                <a href="/products/add/" class="sidebar-link">
+                    <span class="icon">➕</span>
+                    <span class="text">إضافة منتج جديد</span>
+                </a>
+            </div>
+            
+            <div class="sidebar-section">
+                <div class="sidebar-title">المستودع</div>
+                <a href="/manage/" class="sidebar-link">
+                    <span class="icon">⚙️</span>
+                    <span class="text">إدارة المستودع</span>
+                </a>
+                <a href="/locations/" class="sidebar-link">
+                    <span class="icon">📍</span>
+                    <span class="text">الأماكن</span>
+                </a>
+            </div>
+            
+            <div class="sidebar-section">
+                <div class="sidebar-title">السجلات</div>
+                <a href="/audit-logs/" class="sidebar-link">
+                    <span class="icon">📋</span>
+                    <span class="text">سجلات العمليات</span>
+                </a>
+            </div>
+            
+            <div class="sidebar-section">
+                <div class="sidebar-title">التقارير</div>
+                <a href="/daily-reports/" class="sidebar-link">
+                    <span class="icon">📊</span>
+                    <span class="text">التقارير اليومية</span>
+                </a>
+                <a href="/daily-reports-archive/" class="sidebar-link">
+                    <span class="icon">📚</span>
+                    <span class="text">سجل التقارير</span>
+                </a>
+            </div>
+            
+            <div class="sidebar-section">
+                <div class="sidebar-title">الصيانة</div>
+                <a href="/backup-restore/" class="sidebar-link">
+                    <span class="icon">💾</span>
+                    <span class="text">النسخ الاحتياطي</span>
+                </a>
+                <a href="/data-deletion/" class="sidebar-link">
+                    <span class="icon">🗑️</span>
+                    <span class="text">حذف البيانات</span>
+                </a>
+            </div>
+            
+            <div class="sidebar-section">
+                <div class="sidebar-title">الإحصائيات الحية</div>
+                <div class="stats-container">
+                    <!-- المنتجات -->
+                    <div class="stat-category">
+                        <div class="stat-category-title">📦 المنتجات</div>
+                        <div class="stat-item">
+                            <div class="stat-icon">📦</div>
+                            <div class="stat-info">
+                                <div class="stat-value" id="stats-products">-</div>
+                                <div class="stat-label">إجمالي</div>
+                            </div>
+                        </div>
+                        <div class="stat-item mini">
+                            <div class="stat-icon">✅</div>
+                            <div class="stat-info">
+                                <div class="stat-value" id="stats-products-with-locations">-</div>
+                                <div class="stat-label">لها موقع</div>
+                            </div>
+                        </div>
+                        <div class="stat-item mini">
+                            <div class="stat-icon">❌</div>
+                            <div class="stat-info">
+                                <div class="stat-value" id="stats-products-without-locations">-</div>
+                                <div class="stat-label">بدون موقع</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- الأماكن -->
+                    <div class="stat-category">
+                        <div class="stat-category-title">📍 الأماكن</div>
+                        <div class="stat-item">
+                            <div class="stat-icon">📊</div>
+                            <div class="stat-info">
+                                <div class="stat-value" id="stats-capacity">-</div>
+                                <div class="stat-label">السعة الإجمالية</div>
+                            </div>
+                        </div>
+                        <div class="stat-item mini">
+                            <div class="stat-icon">🟢</div>
+                            <div class="stat-info">
+                                <div class="stat-value" id="stats-occupied">-</div>
+                                <div class="stat-label">مشغولة</div>
+                            </div>
+                        </div>
+                        <div class="stat-item mini">
+                            <div class="stat-icon">⚪</div>
+                            <div class="stat-info">
+                                <div class="stat-value" id="stats-empty">-</div>
+                                <div class="stat-label">فارغة</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.1); font-size: 0.75rem; color: #94a3b8; text-align: center;">
+                        🟢 Live Mode - تحديث كل 15 ثانية
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- نافذة البحث السريع -->
+    <div id="quick-search-overlay">
+        <div id="quick-search-modal">
+            <div id="quick-search-header">
+                <h2>🔍 البحث السريع</h2>
+            </div>
+            
+            <div id="quick-search-input-container">
+                <input 
+                    type="text" 
+                    id="quick-search-input" 
+                    placeholder="ابحث عن منتجات أو مواقع..." 
+                    autocomplete="off"
+                />
+            </div>
+            
+            <div id="quick-search-results"></div>
+            
+            <div id="quick-search-shortcuts">
+                <div class="shortcut-item">
+                    <kbd class="shortcut-key">↑</kbd>
+                    <kbd class="shortcut-key">↓</kbd>
+                    للتنقل
+                </div>
+                <div class="shortcut-item">
+                    <kbd class="shortcut-key">↵</kbd>
+                    لفتح النتيجة
+                </div>
+                <div class="shortcut-item">
+                    <kbd class="shortcut-key">Esc</kbd>
+                    للإغلاق
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="{% static 'js/sidebar.js' %}"></script>
+    <script src="{% static 'js/auto_refresh.js' %}"></script>
+    <script src="{% static 'js/quick_search.js' %}"></script>
+    <script src="{% static 'js/notifications.js' %}"></script>
     <script src="{% static 'js/main.js' %}"></script>
+    
+    <script>
+        // عرض إشعارات عند تحميل الصفحة (للاختبار)
+        document.addEventListener('DOMContentLoaded', function() {
+            // إشعار ترحيبي
+            setTimeout(() => {
+                Notifications.info(
+                    '🔍 نظام البحث السريع',
+                    'اضغط Ctrl+K للبحث',
+                    5000
+                );
+            }, 1000);
+        });
+        
+        // إشعارات بعد البحث
+        const originalSearchProducts = window.searchProducts;
+        if (originalSearchProducts) {
+            window.searchProducts = async function(...args) {
+                const result = await originalSearchProducts(...args);
+                
+                if (result && result.length > 0) {
+                    Notifications.success(
+                        'تم العثور على نتائج',
+                        `${result.length} منتج موجود`,
+                        3000
+                    );
+                } else {
+                    Notifications.warning(
+                        'لا توجد نتائج',
+                        'جرب البحث بمصطلح آخر',
+                        3000
+                    );
+                }
+                
+                return result;
+            };
+        }
+    </script>
 </body>
 </html>
 

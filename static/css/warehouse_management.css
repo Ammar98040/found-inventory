@@ -276,9 +276,19 @@ header h1 {
 
 /* استجابة الشاشات الصغيرة */
 @media (max-width: 768px) {
+    body {
+        padding: 10px 5px;
+    }
+    
+    .container {
+        max-width: 100%;
+        padding: 0;
+    }
+    
     .grid-cell {
-        width: 40px;
-        height: 40px;
+        width: 35px;
+        height: 35px;
+        font-size: 0.65rem;
     }
     
     .btn-group {
@@ -288,5 +298,146 @@ header h1 {
     .btn {
         width: 100%;
     }
+    
+    /* المستودع على الجوال */
+    .warehouse-view {
+        padding: 10px 5px !important;
+        margin-top: 15px !important;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    
+    .warehouse-view > div {
+        padding: 10px !important;
+        min-width: fit-content;
+    }
+    
+    /* تحسين عرض الشبكة على الجوال */
+    .warehouse-grid {
+        display: inline-block;
+        min-width: min-content;
+    }
+    
+    .warehouse-grid .grid-row {
+        display: flex;
+        min-width: min-content;
+    }
+    
+    /* حجم الخلايا على الجوال */
+    .warehouse-grid-cell {
+        min-width: 50px;
+        min-height: 50px;
+        font-size: 0.7rem;
+    }
+    
+    /* Headers أصغر على الجوال */
+    .grid-header-cell {
+        font-size: 0.75rem;
+    }
+    
+    /* تحسين النصوص والأرقام */
+    .cell-number {
+        font-size: 0.6rem;
+    }
+    
+    .cell-products-count {
+        font-size: 0.6rem;
+        padding: 1px 4px;
+    }
+    
+    /* إضافة scroll indicators */
+    .warehouse-view::before {
+        content: '← اسحب لرؤية كامل المستودع →';
+        display: block;
+        text-align: center;
+        padding: 8px;
+        background: #f1f5f9;
+        color: #64748b;
+        font-size: 0.85rem;
+        margin-bottom: 10px;
+        border-radius: 6px;
+        position: sticky;
+        top: 0;
+        z-index: 10;
+    }
+}
+
+@media (max-width: 480px) {
+    .grid-cell {
+        width: 28px;
+        height: 28px;
+        font-size: 0.55rem;
+    }
+    
+    .warehouse-grid-cell {
+        min-width: 35px;
+        min-height: 35px;
+        font-size: 0.6rem;
+    }
+    
+    .warehouse-view::before {
+        font-size: 0.75rem;
+        padding: 6px;
+    }
+}
+
+/* تحسينات للوضع الأفقي على الجوال */
+@media (max-width: 900px) and (orientation: landscape) {
+    .warehouse-grid-cell {
+        min-width: 55px;
+        min-height: 55px;
+    }
+    
+    .grid-header-cell {
+        min-width: 40px;
+    }
+}
+
+/* تحسين التمرير السلس على الأجهزة المحمولة */
+.warehouse-view {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth;
+    scroll-snap-type: x proximity;
+}
+
+.warehouse-grid .grid-row {
+    scroll-snap-align: start;
+}
+
+/* تحسين التفاعل باللمس */
+.warehouse-grid-cell {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: rgba(102, 126, 234, 0.2);
+    cursor: pointer;
+}
+
+.warehouse-grid-cell:active {
+    transform: scale(0.95);
+    transition: transform 0.1s;
+}
+
+/* تحسين الرؤية على الشاشات الصغيرة */
+@media (max-width: 768px) {
+    .warehouse-grid-cell:hover {
+        z-index: 5;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+}
+
+/* منع تغيير حجم الخلايا */
+.warehouse-grid-cell {
+    min-width: inherit !important;
+    min-height: inherit !important;
+    max-width: inherit !important;
+    max-height: inherit !important;
+    width: inherit !important;
+    height: inherit !important;
+}
+
+/* ضمان عدم التداخل */
+.grid-row {
+    display: flex !important;
+    min-height: inherit !important;
 }
 

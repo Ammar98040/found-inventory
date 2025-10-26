@@ -466,6 +466,90 @@ header h1 {
         height: auto;
     }
     
+    /* تحسين عرض بطاقات المنتجات على الجوال */
+    .results-container {
+        grid-template-columns: 1fr !important;
+    }
+    
+    .product-card {
+        padding: 15px !important;
+        margin-bottom: 15px;
+    }
+    
+    .product-header {
+        flex-direction: column !important;
+        gap: 10px;
+    }
+    
+    .product-info h3 {
+        font-size: 1.1rem !important;
+        margin-bottom: 8px;
+    }
+    
+    .product-number {
+        font-size: 1rem !important;
+    }
+    
+    .location-item {
+        padding: 12px !important;
+        margin-bottom: 10px !important;
+        border-radius: 6px !important;
+        flex-direction: column !important;
+        gap: 10px;
+    }
+    
+    .location-info {
+        width: 100%;
+    }
+    
+    .location-id {
+        font-size: 1rem !important;
+        margin-bottom: 5px;
+    }
+    
+    .location-details {
+        font-size: 0.85rem !important;
+        margin-top: 5px;
+    }
+    
+    .location-actions button {
+        width: 100%;
+        padding: 10px !important;
+        font-size: 0.9rem !important;
+    }
+    
+    /* إضافة scroll indicator للمستودع على الجوال */
+    #warehouse-view::before {
+        content: '👆 اسحب يميناً ويساراً لرؤية كامل المستودع';
+        display: block;
+        text-align: center;
+        padding: 10px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        font-weight: bold;
+        font-size: 0.9rem;
+        margin: -10px -10px 15px -10px;
+        border-radius: 8px 8px 0 0;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    /* تحسين عرض القائمة المبسطة على الشاشات الصغيرة */
+    #warehouse-grid {
+        width: 100% !important;
+    }
+    
+    #warehouse-grid > div {
+        width: 100% !important;
+    }
+    
+    /* تحسين عرض المستودع على الشاشات المتوسطة */
+    @media (max-width: 768px) and (min-width: 481px) {
+        .warehouse-grid-cell {
+            min-width: 55px !important;
+            min-height: 55px !important;
+        }
+    }
+    
     /* Audit logs responsive */
     .operation-section {
         padding: 15px;
@@ -518,13 +602,34 @@ header h1 {
     }
     
     .product-card {
-        font-size: 0.75rem;
-        padding: 5px;
+        font-size: 0.85rem;
+        padding: 12px !important;
     }
     
     .location-item {
+        font-size: 0.8rem;
+        padding: 10px !important;
+    }
+    
+    /* تحسين عرض الخلايا على شاشات صغيرة جداً */
+    .warehouse-grid-cell {
+        min-width: 35px !important;
+        min-height: 35px !important;
+    }
+    
+    #warehouse-view::before {
+        font-size: 0.75rem !important;
+        padding: 8px !important;
+    }
+    
+    /* تحسين عرض النتائج */
+    .results-header h2 {
+        font-size: 1.1rem !important;
+    }
+    
+    .badge {
         font-size: 0.75rem;
-        padding: 5px 8px;
+        padding: 3px 10px;
     }
 }
 
@@ -536,6 +641,27 @@ header h1 {
     
     .dashboard-grid {
         grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .warehouse-grid-cell {
+        min-width: 60px;
+        min-height: 60px;
+    }
+}
+
+/* تحسينات للشاشات المتوسطة (Tablets) */
+@media (min-width: 481px) and (max-width: 768px) {
+    .results-container {
+        grid-template-columns: 1fr;
+    }
+    
+    .warehouse-grid-cell {
+        min-width: 45px;
+        min-height: 45px;
+    }
+    
+    .product-card {
+        padding: 12px !important;
     }
 }
 

@@ -1,0 +1,200 @@
+/* نظام الإشعارات الفورية */
+.notification-container {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 10001;
+    max-width: 400px;
+}
+
+.notification {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+    padding: 20px;
+    margin-bottom: 15px;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    animation: slideInRight 0.3s ease;
+    border-right: 5px solid transparent;
+}
+
+@keyframes slideInRight {
+    from {
+        opacity: 0;
+        transform: translateX(400px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@keyframes slideOutRight {
+    from {
+        opacity: 1;
+        transform: translateX(0);
+    }
+    to {
+        opacity: 0;
+        transform: translateX(400px);
+    }
+}
+
+.notification.removing {
+    animation: slideOutRight 0.3s ease;
+}
+
+/* أنواع الإشعارات */
+.notification.success {
+    border-right-color: #10b981;
+    background: linear-gradient(135deg, #ecfdf5 0%, #ffffff 100%);
+}
+
+.notification.error {
+    border-right-color: #ef4444;
+    background: linear-gradient(135deg, #fef2f2 0%, #ffffff 100%);
+}
+
+.notification.warning {
+    border-right-color: #f59e0b;
+    background: linear-gradient(135deg, #fffbeb 0%, #ffffff 100%);
+}
+
+.notification.info {
+    border-right-color: #3b82f6;
+    background: linear-gradient(135deg, #eff6ff 0%, #ffffff 100%);
+}
+
+/* أيقونة الإشعار */
+.notification-icon {
+    font-size: 2rem;
+    min-width: 40px;
+    text-align: center;
+}
+
+/* محتوى الإشعار */
+.notification-content {
+    flex: 1;
+}
+
+.notification-title {
+    font-weight: 600;
+    color: #1e293b;
+    margin-bottom: 5px;
+    font-size: 1rem;
+}
+
+.notification-message {
+    color: #64748b;
+    font-size: 0.9rem;
+    line-height: 1.4;
+}
+
+/* زر الإغلاق */
+.notification-close {
+    background: none;
+    border: none;
+    font-size: 1.2rem;
+    color: #94a3b8;
+    cursor: pointer;
+    padding: 5px;
+    border-radius: 50%;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+}
+
+.notification-close:hover {
+    background: rgba(0, 0, 0, 0.05);
+    color: #64748b;
+}
+
+/* بار التقدم (للإشعارات المؤقتة) */
+.notification-progress {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    height: 3px;
+    background: rgba(102, 126, 234, 0.3);
+    animation: progressBar linear;
+}
+
+.notification-progress.success {
+    background: rgba(16, 185, 129, 0.3);
+}
+
+.notification-progress.error {
+    background: rgba(239, 68, 68, 0.3);
+}
+
+.notification-progress.warning {
+    background: rgba(245, 158, 11, 0.3);
+}
+
+.notification-progress.info {
+    background: rgba(59, 130, 246, 0.3);
+}
+
+@keyframes progressBar {
+    from {
+        width: 100%;
+    }
+    to {
+        width: 0%;
+    }
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+    .notification-container {
+        right: 10px;
+        top: 10px;
+        max-width: calc(100% - 20px);
+    }
+    
+    .notification {
+        padding: 15px;
+    }
+    
+    .notification-icon {
+        font-size: 1.5rem;
+    }
+    
+    .notification-title {
+        font-size: 0.9rem;
+    }
+    
+    .notification-message {
+        font-size: 0.8rem;
+    }
+}
+
+/* Dark Mode Support */
+@media (prefers-color-scheme: dark) {
+    .notification {
+        background: #1e293b;
+        color: white;
+    }
+    
+    .notification-title {
+        color: white;
+    }
+    
+    .notification-message {
+        color: #cbd5e1;
+    }
+    
+    .notification-close {
+        color: #94a3b8;
+    }
+    
+    .notification-close:hover {
+        background: rgba(255, 255, 255, 0.1);
+    }
+}
+

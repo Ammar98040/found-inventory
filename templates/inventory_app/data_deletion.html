@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>حذف البيانات</title>
+    {% load static %}
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    <link rel="stylesheet" href="{% static 'css/sidebar.css' %}">
+    <script src="{% static 'js/sidebar.js' %}"></script>
+    <style>
+        .deletion-section {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: var(--shadow-lg);
+            margin-bottom: 30px;
+        }
+        .deletion-header {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+            padding: 30px;
+            border-radius: 12px;
+            color: white;
+            margin-bottom: 30px;
+        }
+        .deletion-header h1 {
+            margin: 0;
+            font-size: 2rem;
+        }
+        .warning-box {
+            background: #fef2f2;
+            border: 2px solid #ef4444;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 30px;
+        }
+        .warning-box .warning-icon {
+            font-size: 3rem;
+            margin-bottom: 10px;
+        }
+        .warning-box h3 {
+            color: #ef4444;
+            margin-bottom: 10px;
+        }
+        .warning-box ul {
+            margin: 10px 0;
+            padding-right: 20px;
+        }
+        .warning-box li {
+            margin-bottom: 5px;
+            color: #7f1d1d;
+        }
+        .checkbox-group {
+            background: #f8fafc;
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .checkbox-item {
+            display: flex;
+            align-items: flex-start;
+            padding: 15px;
+            background: white;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .checkbox-item:hover {
+            background: #f1f5f9;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+        .checkbox-item input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+            margin-left: 15px;
+            margin-top: 2px;
+            appearance: none;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            border: 2px solid #cbd5e0;
+            border-radius: 4px;
+            position: relative;
+        }
+        .checkbox-item input[type="checkbox"]:checked {
+            background-color: #667eea;
+            border-color: #667eea;
+        }
+        .checkbox-item input[type="checkbox"]:checked::after {
+            content: '✓';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-size: 14px;
+            font-weight: bold;
+        }
+        .checkbox-item label {
+            flex: 1;
+            cursor: pointer;
+            font-size: 1.05rem;
+        }
+        .checkbox-item .icon {
+            font-size: 1.5rem;
+            margin-left: 10px;
+        }
+        .checkbox-item .count {
+            background: var(--primary-color);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 12px;
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+        .btn-delete {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.2rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .btn-delete:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(239, 68, 68, 0.3);
+        }
+        .btn-delete:disabled {
+            background: #94a3b8;
+            cursor: not-allowed;
+            transform: none;
+        }
+        #passwordModal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 10000;
+            align-items: center;
+            justify-content: center;
+        }
+        #passwordModal.active {
+            display: flex;
+        }
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            max-width: 450px;
+            width: 90%;
+        }
+        .modal-content h3 {
+            color: #ef4444;
+            margin-bottom: 15px;
+        }
+        .modal-content input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            font-size: 1rem;
+            margin-bottom: 15px;
+        }
+        .modal-buttons {
+            display: flex;
+            gap: 10px;
+        }
+        .modal-buttons button {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+        .btn-confirm {
+            background: #ef4444;
+            color: white;
+        }
+        .btn-cancel {
+            background: #e2e8f0;
+            color: #334155;
+        }
+    </style>
+</head>
+<body>
+    <!-- Sidebar Toggle Button -->
+    <button id="sidebar-toggle" onclick="toggleSidebar()">☰</button>
+    
+    <div id="sidebar-overlay"></div>
+    
+    <!-- Sidebar -->
+    <div id="main-sidebar">
+        <div class="sidebar-header">
+            <h2>🧭 القوائم</h2>
+            <button class="sidebar-close" onclick="toggleSidebar()">×</button>
+        </div>
+        
+        <!-- حقل البحث -->
+        <div class="sidebar-search">
+            <input type="text" id="sidebar-search-input" placeholder="🔍 ابحث في القوائم..." autocomplete="off">
+            <div id="sidebar-search-results"></div>
+        </div>
+        
+        <div class="sidebar-content" id="sidebar-main-content">
+            <div class="sidebar-section">
+                <div class="sidebar-title">الرئيسية</div>
+                <a href="/" class="sidebar-link">
+                    <span class="icon">🔍</span>
+                    <span class="text">البحث عن المنتجات</span>
+                </a>
+                <a href="/dashboard/" class="sidebar-link">
+                    <span class="icon">📊</span>
+                    <span class="text">لوحة التحكم</span>
+                </a>
+            </div>
+            
+            <div class="sidebar-section">
+                <div class="sidebar-title">إدارة المنتجات</div>
+                <a href="/products/" class="sidebar-link">
+                    <span class="icon">📦</span>
+                    <span class="text">قائمة المنتجات</span>
+                </a>
+                <a href="/products/add/" class="sidebar-link">
+                    <span class="icon">➕</span>
+                    <span class="text">إضافة منتج جديد</span>
+                </a>
+            </div>
+            
+            <div class="sidebar-section">
+                <div class="sidebar-title">المستودع</div>
+                <a href="/manage/" class="sidebar-link">
+                    <span class="icon">⚙️</span>
+                    <span class="text">إدارة المستودع</span>
+                </a>
+                <a href="/locations/" class="sidebar-link">
+                    <span class="icon">📍</span>
+                    <span class="text">الأماكن</span>
+                </a>
+            </div>
+            
+            <div class="sidebar-section">
+                <div class="sidebar-title">السجلات</div>
+                <a href="/audit-logs/" class="sidebar-link">
+                    <span class="icon">📋</span>
+                    <span class="text">سجلات العمليات</span>
+                </a>
+            </div>
+            
+            <div class="sidebar-section">
+                <div class="sidebar-title">التقارير</div>
+                <a href="/daily-reports/" class="sidebar-link">
+                    <span class="icon">📊</span>
+                    <span class="text">التقارير اليومية</span>
+                </a>
+                <a href="/daily-reports-archive/" class="sidebar-link">
+                    <span class="icon">📚</span>
+                    <span class="text">سجل التقارير</span>
+                </a>
+            </div>
+            
+            <div class="sidebar-section">
+                <div class="sidebar-title">الصيانة</div>
+                <a href="/backup-restore/" class="sidebar-link">
+                    <span class="icon">💾</span>
+                    <span class="text">النسخ الاحتياطي</span>
+                </a>
+                <a href="/data-deletion/" class="sidebar-link active">
+                    <span class="icon">🗑️</span>
+                    <span class="text">حذف البيانات</span>
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="container">
+        <main class="main-content">
+            <div class="deletion-header">
+                <h1>🗑️ حذف البيانات</h1>
+                <p style="margin: 10px 0 0 0; opacity: 0.9;">احذر: هذا الإجراء لا يمكن التراجع عنه</p>
+            </div>
+
+            <!-- تحذير مهم -->
+            <div class="warning-box">
+                <div class="warning-icon">⚠️</div>
+                <h3>تحذير مهم جداً</h3>
+                <ul>
+                    <li>سيتم حذف البيانات المحددة بشكل نهائي ودائم</li>
+                    <li>لا يمكن استعادة البيانات بعد الحذف</li>
+                    <li>تأكد من أنك قمت بعمل نسخة احتياطية قبل الحذف</li>
+                    <li>يرجى التأكد من اختيار البيانات المراد حذفها بعناية</li>
+                </ul>
+            </div>
+
+            <!-- قسم اختيار البيانات -->
+            <div class="deletion-section">
+                <h2 style="margin-bottom: 20px; color: var(--primary-color);">📋 اختر البيانات المراد حذفها:</h2>
+                
+                <div class="checkbox-group">
+                    <div class="checkbox-item" onclick="toggleCheckbox('delete_products')">
+                        <span class="icon">📦</span>
+                        <input type="checkbox" id="delete_products" name="delete_products">
+                        <label for="delete_products">حذف جميع المنتجات</label>
+                        <span class="count">{{ stats.products }}</span>
+                    </div>
+                    
+                    <div class="checkbox-item" onclick="toggleCheckbox('delete_warehouses')">
+                        <span class="icon">🏢</span>
+                        <input type="checkbox" id="delete_warehouses" name="delete_warehouses">
+                        <label for="delete_warehouses">حذف جميع المستودعات</label>
+                        <span class="count">{{ stats.warehouses }}</span>
+                    </div>
+                    
+                    <div class="checkbox-item" onclick="toggleCheckbox('delete_locations')">
+                        <span class="icon">📍</span>
+                        <input type="checkbox" id="delete_locations" name="delete_locations">
+                        <label for="delete_locations">حذف جميع الأماكن</label>
+                        <span class="count">{{ stats.locations }}</span>
+                    </div>
+                    
+                    <div class="checkbox-item" onclick="toggleCheckbox('delete_audit_logs')">
+                        <span class="icon">📝</span>
+                        <input type="checkbox" id="delete_audit_logs" name="delete_audit_logs">
+                        <label for="delete_audit_logs">حذف جميع سجلات العمليات</label>
+                        <span class="count">{{ stats.audit_logs }}</span>
+                    </div>
+                    
+                    <div class="checkbox-item" onclick="toggleCheckbox('delete_daily_reports')">
+                        <span class="icon">📊</span>
+                        <input type="checkbox" id="delete_daily_reports" name="delete_daily_reports">
+                        <label for="delete_daily_reports">حذف جميع التقارير اليومية</label>
+                        <span class="count">{{ stats.daily_reports }}</span>
+                    </div>
+                </div>
+                
+                <button class="btn-delete" onclick="confirmDeletion()">🗑️ حذف البيانات المحددة</button>
+            </div>
+        </main>
+    </div>
+
+    <!-- نموذج تأكيد الحذف -->
+    <div id="passwordModal">
+        <div class="modal-content">
+            <h3>⚠️ تأكيد الحذف</h3>
+            <p>هل أنت متأكد من حذف البيانات المحددة؟ هذا الإجراء لا يمكن التراجع عنه!</p>
+            <div class="modal-buttons">
+                <button class="btn-confirm" onclick="executeDeletion()">نعم، احذف</button>
+                <button class="btn-cancel" onclick="closeModal()">إلغاء</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function toggleCheckbox(id) {
+            const checkbox = document.getElementById(id);
+            checkbox.checked = !checkbox.checked;
+        }
+
+        function confirmDeletion() {
+            // التحقق من تحديد أي خيار
+            const checkboxes = document.querySelectorAll('.checkbox-group input[type="checkbox"]');
+            let hasSelection = false;
+            checkboxes.forEach(cb => {
+                if (cb.checked) hasSelection = true;
+            });
+            
+            if (!hasSelection) {
+                alert('⚠️ يرجى اختيار بيانات للحذف أولاً');
+                return;
+            }
+            
+            // عرض نافذة التأكيد
+            document.getElementById('passwordModal').classList.add('active');
+        }
+
+        function closeModal() {
+            document.getElementById('passwordModal').classList.remove('active');
+        }
+
+        function executeDeletion() {
+            // جمع البيانات المحددة
+            const data = {
+                delete_products: document.getElementById('delete_products').checked,
+                delete_warehouses: document.getElementById('delete_warehouses').checked,
+                delete_locations: document.getElementById('delete_locations').checked,
+                delete_audit_logs: document.getElementById('delete_audit_logs').checked,
+                delete_daily_reports: document.getElementById('delete_daily_reports').checked
+            };
+            
+            // إرسال الطلب
+            fetch('{% url "inventory_app:delete_data" %}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: JSON.stringify(data)
+            })
+            .then(response => response.json())
+            .then(result => {
+                closeModal();
+                
+                if (result.success) {
+                    alert('✅ ' + result.message);
+                    location.reload();
+                } else {
+                    alert('❌ ' + result.error);
+                }
+            })
+            .catch(error => {
+                closeModal();
+                alert('❌ حدث خطأ: ' + error);
+            });
+        }
+        
+        // إغلاق النافذة عند الضغط على ESC
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                closeModal();
+            }
+        });
+    </script>
+</body>
+</html>

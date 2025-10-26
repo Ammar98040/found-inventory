@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>النسخ الاحتياطي والاستعادة</title>
+    {% load static %}
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    <link rel="stylesheet" href="{% static 'css/sidebar.css' %}">
+    <style>
+        .backup-section {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: var(--shadow-lg);
+            margin-bottom: 30px;
+        }
+        .backup-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 30px;
+            border-radius: 12px;
+            color: white;
+            margin-bottom: 30px;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+        .stat-item {
+            background: #f8fafc;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            border-right: 3px solid #667eea;
+        }
+        .stat-label {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            margin-bottom: 5px;
+        }
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: var(--primary-color);
+        }
+        .action-card {
+            padding: 25px;
+            border: 2px dashed var(--border-color);
+            border-radius: 12px;
+            margin-bottom: 20px;
+            transition: all 0.3s;
+        }
+        .action-card:hover {
+            border-color: var(--primary-color);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.1);
+        }
+        .action-icon {
+            font-size: 3rem;
+            margin-bottom: 15px;
+        }
+        .upload-area {
+            border: 2px dashed #cbd5e1;
+            border-radius: 8px;
+            padding: 40px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: #f8fafc;
+        }
+        .upload-area:hover {
+            border-color: var(--primary-color);
+            background: #f1f5f9;
+        }
+        .upload-area.dragover {
+            border-color: var(--primary-color);
+            background: #eef2ff;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="backup-header">
+            <h1>💾 النسخ الاحتياطي والاستعادة</h1>
+            <p style="margin: 10px 0 0 0; opacity: 0.9;">احفظ واستعد بياناتك بأمان تام</p>
+        </div>
+
+        <!-- إحصائيات البيانات -->
+        <div class="backup-section">
+            <h2 style="margin-bottom: 20px; color: var(--primary-color);">📊 إحصائيات البيانات الحالية</h2>
+            <div class="stats-grid">
+                <div class="stat-item">
+                    <div class="stat-label">المستودعات</div>
+                    <div class="stat-value">{{ stats.warehouses }}</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">الأماكن</div>
+                    <div class="stat-value">{{ stats.locations }}</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">المنتجات</div>
+                    <div class="stat-value">{{ stats.products }}</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">سجلات العمليات</div>
+                    <div class="stat-value">{{ stats.audit_logs }}</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">التقارير</div>
+                    <div class="stat-value">{{ stats.daily_reports }}</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- تصدير النسخ الاحتياطي -->
+        <div class="backup-section">
+            <div class="action-card">
+                <div class="action-icon">📤</div>
+                <h3 style="margin-bottom: 15px;">تصدير النسخ الاحتياطي</h3>
+                <p style="color: var(--text-secondary); margin-bottom: 20px;">
+                    قم بتنزيل نسخة احتياطية كاملة من جميع بيانات النظام. يمكنك استخدام هذا الملف لاستعادة البيانات لاحقاً.
+                </p>
+                <button onclick="exportBackup()" class="btn btn-primary" style="padding: 12px 30px; font-size: 1.1rem;">
+                    📥 تحميل النسخ الاحتياطي
+                </button>
+            </div>
+        </div>
+
+        <!-- استيراد النسخ الاحتياطي -->
+        <div class="backup-section">
+            <div class="action-card">
+                <div class="action-icon">📥</div>
+                <h3 style="margin-bottom: 15px;">استيراد النسخ الاحتياطي</h3>
+                <p style="color: var(--text-secondary); margin-bottom: 20px;">
+                    قم بتحميل ملف النسخ الاحتياطي لاستعادة البيانات السابقة.
+                </p>
+                
+                <div class="upload-area" id="upload-area" onclick="document.getElementById('backup-file-input').click()">
+                    <div style="font-size: 3rem; margin-bottom: 15px;">📁</div>
+                    <div style="font-weight: bold; margin-bottom: 10px;">انقر لاختيار الملف أو اسحب الملف هنا</div>
+                    <div style="color: var(--text-secondary); font-size: 0.9rem;">الملفات المدعومة: .json</div>
+                </div>
+                
+                <input type="file" id="backup-file-input" accept=".json" style="display: none;" onchange="handleFileSelect(this)">
+                
+                <div style="margin-top: 20px;">
+                    <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                        <input type="checkbox" id="clear-existing" style="width: 18px; height: 18px;">
+                        <span>حذف البيانات الموجودة قبل الاستيراد</span>
+                    </label>
+                </div>
+                
+                <button onclick="importBackup()" class="btn" style="background: #10b981; color: white; padding: 12px 30px; font-size: 1.1rem; margin-top: 15px;" id="import-btn" disabled>
+                    🔄 استيراد النسخ الاحتياطي
+                </button>
+            </div>
+        </div>
+
+        <!-- معلومات مهمة -->
+        <div class="backup-section" style="background: #fef3c7; border-right: 4px solid #f59e0b;">
+            <h3 style="color: #92400e; margin-bottom: 15px;">⚠️ معلومات مهمة</h3>
+            <ul style="color: #78350f; line-height: 1.8;">
+                <li>يُنصح بعمل نسخة احتياطية بانتظام لحماية بياناتك</li>
+                <li>يحتفظ ملف النسخ الاحتياطي بجميع البيانات: المستودعات، الأماكن، المنتجات، السجلات، والتقارير</li>
+                <li>عند الاستيراد مع "حذف البيانات الموجودة"، سيتم محو جميع البيانات الحالية</li>
+                <li>احتفظ بملفات النسخ الاحتياطي في مكان آمن</li>
+                <li>تأكد من صحة ملف النسخ الاحتياطي قبل الاستيراد</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- Sidebar -->
+    <button id="sidebar-toggle" onclick="toggleSidebar()">☰</button>
+    
+    <div id="sidebar-overlay"></div>
+    
+    <div id="main-sidebar">
+        <div class="sidebar-header">
+            <h2>🧭 القوائم</h2>
+            <button class="sidebar-close" onclick="toggleSidebar()">×</button>
+        </div>
+        
+        <!-- حقل البحث -->
+        <div class="sidebar-search">
+            <input type="text" id="sidebar-search-input" placeholder="🔍 ابحث في القوائم..." autocomplete="off">
+            <div id="sidebar-search-results"></div>
+        </div>
+        
+        <div class="sidebar-content" id="sidebar-main-content">
+            <div class="sidebar-section">
+                <div class="sidebar-title">الرئيسية</div>
+                <a href="/" class="sidebar-link">
+                    <span class="icon">🔍</span>
+                    <span class="text">البحث عن المنتجات</span>
+                </a>
+                <a href="/dashboard/" class="sidebar-link">
+                    <span class="icon">📊</span>
+                    <span class="text">لوحة التحكم</span>
+                </a>
+            </div>
+            
+            <div class="sidebar-section">
+                <div class="sidebar-title">إدارة المنتجات</div>
+                <a href="/products/" class="sidebar-link">
+                    <span class="icon">📦</span>
+                    <span class="text">قائمة المنتجات</span>
+                </a>
+                <a href="/products/add/" class="sidebar-link">
+                    <span class="icon">➕</span>
+                    <span class="text">إضافة منتج جديد</span>
+                </a>
+            </div>
+            
+            <div class="sidebar-section">
+                <div class="sidebar-title">المستودع</div>
+                <a href="/manage/" class="sidebar-link">
+                    <span class="icon">⚙️</span>
+                    <span class="text">إدارة المستودع</span>
+                </a>
+                <a href="/locations/" class="sidebar-link">
+                    <span class="icon">📍</span>
+                    <span class="text">الأماكن</span>
+                </a>
+            </div>
+            
+            <div class="sidebar-section">
+                <div class="sidebar-title">السجلات</div>
+                <a href="/audit-logs/" class="sidebar-link">
+                    <span class="icon">📋</span>
+                    <span class="text">سجلات العمليات</span>
+                </a>
+            </div>
+            
+            <div class="sidebar-section">
+                <div class="sidebar-title">التقارير</div>
+                <a href="/daily-reports/" class="sidebar-link">
+                    <span class="icon">📊</span>
+                    <span class="text">التقارير اليومية</span>
+                </a>
+                <a href="/daily-reports-archive/" class="sidebar-link">
+                    <span class="icon">📚</span>
+                    <span class="text">سجل التقارير</span>
+                </a>
+            </div>
+            
+            <div class="sidebar-section">
+                <div class="sidebar-title">الصيانة</div>
+                <a href="/backup-restore/" class="sidebar-link active">
+                    <span class="icon">💾</span>
+                    <span class="text">النسخ الاحتياطي</span>
+                </a>
+                <a href="/data-deletion/" class="sidebar-link">
+                    <span class="icon">🗑️</span>
+                    <span class="text">حذف البيانات</span>
+                </a>
+            </div>
+            
+            <div class="sidebar-section">
+                <div class="sidebar-title">الإحصائيات الحية</div>
+                <div class="stats-container">
+                    <div class="stat-category">
+                        <div class="stat-category-title">📦 المنتجات</div>
+                        <div class="stat-item">
+                            <div class="stat-icon">📦</div>
+                            <div class="stat-info">
+                                <div class="stat-value" id="stats-products">-</div>
+                                <div class="stat-label">إجمالي</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="stat-category">
+                        <div class="stat-category-title">📍 الأماكن</div>
+                        <div class="stat-item">
+                            <div class="stat-icon">📊</div>
+                            <div class="stat-info">
+                                <div class="stat-value" id="stats-capacity">-</div>
+                                <div class="stat-label">السعة</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="{% static 'js/sidebar.js' %}"></script>
+    <script src="{% static 'js/auto_refresh.js' %}"></script>
+    
+    <script>
+        let selectedFile = null;
+
+        function exportBackup() {
+            if (!confirm('هل تريد تحميل النسخ الاحتياطي؟')) {
+                return;
+            }
+            
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = '/api/export-backup/';
+            
+            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
+            if (!csrfToken) {
+                const token = document.createElement('input');
+                token.type = 'hidden';
+                token.name = 'csrfmiddlewaretoken';
+                token.value = '{{ csrf_token }}';
+                form.appendChild(token);
+            }
+            
+            document.body.appendChild(form);
+            form.submit();
+            document.body.removeChild(form);
+        }
+
+        function handleFileSelect(input) {
+            if (input.files && input.files[0]) {
+                selectedFile = input.files[0];
+                
+                // عرض اسم الملف
+                const uploadArea = document.getElementById('upload-area');
+                uploadArea.innerHTML = `
+                    <div style="font-size: 2rem; margin-bottom: 10px;">✅</div>
+                    <div style="font-weight: bold; color: #10b981;">${selectedFile.name}</div>
+                    <div style="color: var(--text-secondary); font-size: 0.9rem; margin-top: 5px;">${(selectedFile.size / 1024).toFixed(2)} KB</div>
+                    <button onclick="event.stopPropagation(); document.getElementById('backup-file-input').click();" class="btn btn-secondary" style="margin-top: 10px; padding: 5px 15px;">تغيير الملف</button>
+                `;
+                
+                document.getElementById('import-btn').disabled = false;
+            }
+        }
+
+        function importBackup() {
+            if (!selectedFile) {
+                alert('يرجى اختيار ملف النسخ الاحتياطي');
+                return;
+            }
+            
+            const clearExisting = document.getElementById('clear-existing').checked;
+            
+            let message = 'هل تريد استيراد النسخ الاحتياطي؟';
+            if (clearExisting) {
+                message = '⚠️ سيتم حذف جميع البيانات الموجودة!\n' + message;
+            }
+            
+            if (!confirm(message)) {
+                return;
+            }
+            
+            const formData = new FormData();
+            formData.append('backup_file', selectedFile);
+            formData.append('clear_existing', clearExisting);
+            
+            // إضافة CSRF token
+            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
+            if (csrfToken) {
+                formData.append('csrfmiddlewaretoken', csrfToken.value);
+            } else {
+                // محاولة الحصول من cookies
+                const cookieValue = document.cookie
+                    .split('; ')
+                    .find(row => row.startsWith('csrftoken='))
+                    ?.split('=')[1];
+                if (cookieValue) {
+                    formData.append('csrfmiddlewaretoken', cookieValue);
+                }
+            }
+            
+            fetch('/api/import-backup/', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('✅ ' + data.message);
+                    window.location.reload();
+                } else {
+                    alert('❌ ' + data.error);
+                }
+            })
+            .catch(error => {
+                alert('❌ حدث خطأ: ' + error.message);
+            });
+        }
+
+        // Drag and drop functionality
+        const uploadArea = document.getElementById('upload-area');
+        
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+        
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+        
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                document.getElementById('backup-file-input').files = files;
+                handleFileSelect(document.getElementById('backup-file-input'));
+            }
+        });
+    </script>
+</body>
+</html>

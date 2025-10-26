@@ -1,12 +1,14 @@
 from django.shortcuts import render, redirect, get_object_or_404
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from django.contrib import messages
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 from django.db import transaction
 from django.db import models as db_models
-from .models import Product, Location, Warehouse, AuditLog
+from .models import Product, Location, Warehouse, AuditLog, DailyReportArchive
 import json
+from django.core import serializers
+from datetime import datetime
 
 
 def home(request):
@@ -534,6 +536,120 @@ def locations_list(request):
     })
 
 
+@require_http_methods(["GET"])
+def get_stats(request):
+    """API للحصول على إحصائيات النظام"""
+    try:
+        from .models import Product, Location, Warehouse
+        
+        # إحصائيات المنتجات
+        products_count = Product.objects.count()
+        # المنتجات التي لها موقع (location ليست null)
+        products_with_locations = Product.objects.filter(location__isnull=False).count()
+        products_without_locations = products_count - products_with_locations
+        
+        # إحصائيات الأماكن
+        locations_count = Location.objects.count()
+        warehouse = Warehouse.objects.first()
+        
+        if warehouse:
+            total_capacity = warehouse.rows_count * warehouse.columns_count
+            # المواقع المشغولة (التي تحتوي على منتجات)
+            occupied_locations = Location.objects.filter(products__isnull=False).distinct().count()
+            empty_locations = total_capacity - occupied_locations
+        else:
+            total_capacity = 0
+            occupied_locations = 0
+            empty_locations = 0
+        
+        return JsonResponse({
+            # المنتجات
+            'products_count': products_count,
+            'products_with_locations': products_with_locations,
+            'products_without_locations': products_without_locations,
+            # الأماكن
+            'locations_count': locations_count,
+            'total_capacity': total_capacity,
+            'occupied_locations': occupied_locations,
+            'empty_locations': empty_locations,
+            # معلومات المستودع
+            'warehouse_rows': warehouse.rows_count if warehouse else 0,
+            'warehouse_columns': warehouse.columns_count if warehouse else 0,
+        }, json_dumps_params={'ensure_ascii': False})
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@require_http_methods(["GET"])
+def quick_search_products(request):
+    """API للبحث السريع في المنتجات"""
+    try:
+        from .models import Product
+        query = request.GET.get('q', '').strip()
+        
+        if not query:
+            return JsonResponse([], safe=False, json_dumps_params={'ensure_ascii': False})
+        
+        # البحث في رقم المنتج واسمه
+        products = Product.objects.filter(
+            product_number__icontains=query
+        ) | Product.objects.filter(
+            name__icontains=query
+        )
+        
+        products = products[:10]  # أول 10 نتائج
+        
+        results = []
+        for product in products:
+            results.append({
+                'id': product.id,
+                'product_number': product.product_number,
+                'name': product.name,
+                'location': product.location.full_location if product.location else None,
+                'quantity': product.quantity
+            })
+        
+        return JsonResponse(results, safe=False, json_dumps_params={'ensure_ascii': False})
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@require_http_methods(["GET"])
+def quick_search_locations(request):
+    """API للبحث السريع في الأماكن"""
+    try:
+        from .models import Location
+        query = request.GET.get('q', '').strip()
+        
+        if not query:
+            return JsonResponse([], safe=False, json_dumps_params={'ensure_ascii': False})
+        
+        # البحث في المواقع (R1C1, R2C3, etc.)
+        locations = Location.objects.filter(
+            row__icontains=query
+        ) | Location.objects.filter(
+            column__icontains=query
+        )
+        
+        locations = locations[:10]  # أول 10 نتائج
+        
+        results = []
+        for location in locations:
+            has_product = location.products.exists()
+            results.append({
+                'id': location.id,
+                'full_location': location.full_location,
+                'row': location.row,
+                'column': location.column,
+                'has_product': has_product,
+                'warehouse': location.warehouse.name if location.warehouse else ''
+            })
+        
+        return JsonResponse(results, safe=False, json_dumps_params={'ensure_ascii': False})
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
 def audit_logs(request):
     """صفحة عرض سجلات العمليات"""
     logs = AuditLog.objects.all()
@@ -555,4 +671,475 @@ def audit_logs(request):
         'search': search,
         'action_filter': action_filter
     })
+
+
+# ========== تصدير البيانات ==========
+
+def export_products_excel(request):
+    """تصدير قائمة المنتجات إلى Excel"""
+    from django.http import HttpResponse
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+    from openpyxl.utils import get_column_letter
+    
+    # إنشاء workbook جديد
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "المنتجات"
+    
+    # تنسيق النمط العربي
+    arabic_font = Font(name='Arial', size=12, bold=True)
+    border = Border(
+        left=Side(style='thin'),
+        right=Side(style='thin'),
+        top=Side(style='thin'),
+        bottom=Side(style='thin')
+    )
+    
+    # رأس الجدول
+    headers = ['#', 'رقم المنتج', 'الاسم', 'الفئة', 'الكمية', 'الموقع', 'تاريخ الإضافة']
+    ws.append(headers)
+    
+    # تنسيق رأس الجدول
+    header_fill = PatternFill(start_color='4472C4', end_color='4472C4', fill_type='solid')
+    for col in range(1, len(headers) + 1):
+        cell = ws.cell(row=1, column=col)
+        cell.font = Font(name='Arial', size=12, bold=True, color='FFFFFF')
+        cell.fill = header_fill
+        cell.alignment = Alignment(horizontal='right', vertical='center', wrap_text=True)
+        cell.border = border
+    
+    # جلب المنتجات
+    products = Product.objects.all().order_by('product_number')
+    
+    # إضافة البيانات
+    for idx, product in enumerate(products, start=1):
+        location_text = product.location.full_location if product.location else 'لا يوجد موقع'
+        
+        row_data = [
+            idx,
+            product.product_number,
+            product.name,
+            product.category or '',
+            product.quantity,
+            location_text,
+            product.created_at.strftime('%Y-%m-%d')
+        ]
+        
+        ws.append(row_data)
+        
+        # تنسيق الصف
+        for col in range(1, len(row_data) + 1):
+            cell = ws.cell(row=idx + 1, column=col)
+            cell.alignment = Alignment(horizontal='right', vertical='center', wrap_text=True)
+            cell.border = border
+            cell.font = Font(name='Arial', size=11)
+    
+    # ضبط عرض الأعمدة
+    column_widths = [5, 15, 25, 15, 10, 12, 15]
+    for col, width in enumerate(column_widths, start=1):
+        ws.column_dimensions[get_column_letter(col)].width = width
+    
+    # إعداد الاستجابة
+    response = HttpResponse(
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    response['Content-Disposition'] = 'attachment; filename="قائمة_المنتجات.xlsx"'
+    
+    wb.save(response)
+    return response
+
+
+def daily_reports(request):
+    """صفحة التقارير اليومية السريعة"""
+    from datetime import datetime, timedelta
+    
+    # تحديد نطاق التاريخ (اليوم)
+    today = datetime.now().date()
+    
+    # إحصائيات اليوم (استخدام created_at بدلاً من timestamp)
+    today_logs = AuditLog.objects.filter(created_at__date=today)
+    
+    # إحصائيات المنتجات
+    products_added = today_logs.filter(action='added').count()
+    products_updated = today_logs.filter(action='updated').count()
+    products_deleted = today_logs.filter(action='deleted').count()
+    quantities_taken = today_logs.filter(action='quantity_taken').count()
+    locations_assigned = today_logs.filter(action='location_assigned').count()
+    
+    # المنتجات الجديدة اليوم
+    new_products = Product.objects.filter(created_at__date=today).order_by('-created_at')[:10]
+    
+    # آخر العمليات
+    recent_logs = today_logs.order_by('-created_at')[:20]
+    
+    # إحصائيات الكميات
+    quantity_changes = today_logs.filter(action__in=['added', 'quantity_taken']).aggregate(
+        total_added=db_models.Sum('quantity_change', filter=db_models.Q(quantity_change__gt=0)),
+        total_removed=db_models.Sum('quantity_change', filter=db_models.Q(quantity_change__lt=0))
+    )
+    
+    context = {
+        'today': today,
+        'products_added': products_added,
+        'products_updated': products_updated,
+        'products_deleted': products_deleted,
+        'quantities_taken': quantities_taken,
+        'locations_assigned': locations_assigned,
+        'new_products': new_products,
+        'recent_logs': recent_logs,
+        'total_added': quantity_changes['total_added'] or 0,
+        'total_removed': abs(quantity_changes['total_removed'] or 0),
+    }
+    
+    return render(request, 'inventory_app/daily_reports.html', context)
+
+
+def convert_to_hijri(gregorian_date):
+    """تحويل التاريخ الميلادي إلى هجري"""
+    try:
+        from datetime import datetime
+        # حساب التاريخ الهجري بطريقة تقريبية
+        hijri_epoch = datetime(622, 7, 16)  # بداية التقويم الهجري
+        days_diff = (gregorian_date - hijri_epoch.date()).days
+        hijri_year = 1 + days_diff // 354  # السنة الهجرية حوالي 354 يوماً
+        
+        # شهر تقريبي
+        remaining_days = days_diff % 354
+        hijri_month = (remaining_days // 30) + 1
+        hijri_day = remaining_days % 30
+        
+        hijri_months = ['محرم', 'صفر', 'ربيع الأول', 'ربيع الآخر', 'جمادى الأولى', 
+                       'جمادى الآخرة', 'رجب', 'شعبان', 'رمضان', 'شوال', 'ذو القعدة', 'ذو الحجة']
+        
+        month_name = hijri_months[min(hijri_month - 1, 11)]
+        
+        return f"{hijri_day} {month_name} {hijri_year}"
+    except:
+        return f"تحويل التاريخ غير متاح"
+
+
+def save_daily_report(request):
+    """حفظ التقرير اليومي"""
+    from datetime import datetime
+    
+    if request.method == 'POST':
+        try:
+            today = datetime.now().date()
+            
+            # التحقق من عدم وجود تقرير محفوظ لهذا اليوم
+            existing_report = DailyReportArchive.objects.filter(report_date=today).first()
+            if existing_report:
+                return JsonResponse({
+                    'success': False,
+                    'message': 'تم حفظ تقرير اليوم مسبقاً'
+                })
+            
+            # جلب بيانات اليوم
+            today_logs = AuditLog.objects.filter(created_at__date=today)
+            
+            products_added = today_logs.filter(action='added').count()
+            products_updated = today_logs.filter(action='updated').count()
+            products_deleted = today_logs.filter(action='deleted').count()
+            quantities_taken = today_logs.filter(action='quantity_taken').count()
+            locations_assigned = today_logs.filter(action='location_assigned').count()
+            
+            new_products = Product.objects.filter(created_at__date=today).order_by('-created_at')[:10]
+            recent_logs = today_logs.order_by('-created_at')[:20]
+            
+            quantity_changes = today_logs.filter(action__in=['added', 'quantity_taken']).aggregate(
+                total_added=db_models.Sum('quantity_change', filter=db_models.Q(quantity_change__gt=0)),
+                total_removed=db_models.Sum('quantity_change', filter=db_models.Q(quantity_change__lt=0))
+            )
+            
+            # إعداد البيانات للـ JSON
+            report_data = {
+                'new_products': [
+                    {
+                        'product_number': p.product_number,
+                        'name': p.name,
+                        'category': p.category,
+                        'quantity': p.quantity,
+                        'location': p.location.full_location if p.location else None
+                    } for p in new_products
+                ],
+                'recent_logs': [
+                    {
+                        'action': log.action,
+                        'product_number': log.product_number,
+                        'notes': log.notes,
+                        'created_at': log.created_at.strftime('%Y-%m-%d %H:%M')
+                    } for log in recent_logs
+                ]
+            }
+            
+            # إنشاء التقرير المحفوظ
+            hijri_date = convert_to_hijri(today)
+            
+            DailyReportArchive.objects.create(
+                report_date=today,
+                hijri_date=hijri_date,
+                products_added=products_added,
+                products_updated=products_updated,
+                products_deleted=products_deleted,
+                quantities_taken=quantities_taken,
+                locations_assigned=locations_assigned,
+                total_added=quantity_changes['total_added'] or 0,
+                total_removed=abs(quantity_changes['total_removed'] or 0),
+                report_data=report_data
+            )
+            
+            return JsonResponse({
+                'success': True,
+                'message': 'تم حفظ التقرير بنجاح'
+            })
+            
+        except Exception as e:
+            return JsonResponse({
+                'success': False,
+                'message': f'خطأ: {str(e)}'
+            })
+    
+    return JsonResponse({'success': False, 'message': 'Invalid request'})
+
+
+def daily_reports_archive(request):
+    """عرض السجل (أرشيف التقارير اليومية)"""
+    search_query = request.GET.get('search', '')
+    
+    reports = DailyReportArchive.objects.all()
+    
+    if search_query:
+        # البحث في التاريخ الميلادي والهجري
+        reports = reports.filter(
+            report_date__icontains=search_query
+        ) | reports.filter(
+            hijri_date__icontains=search_query
+        )
+    
+    return render(request, 'inventory_app/daily_reports_archive.html', {
+        'reports': reports,
+        'search_query': search_query
+    })
+
+
+def daily_report_detail(request, report_id):
+    """عرض تفاصيل تقرير محفوظ"""
+    report = get_object_or_404(DailyReportArchive, id=report_id)
+    
+    return render(request, 'inventory_app/daily_report_detail.html', {
+        'report': report
+    })
+
+
+def backup_restore_page(request):
+    """صفحة النسخ الاحتياطي والاستعادة"""
+    # إحصائيات البيانات
+    stats = {
+        'warehouses': Warehouse.objects.count(),
+        'locations': Location.objects.count(),
+        'products': Product.objects.count(),
+        'audit_logs': AuditLog.objects.count(),
+        'daily_reports': DailyReportArchive.objects.count(),
+    }
+    
+    return render(request, 'inventory_app/backup_restore.html', {
+        'stats': stats
+    })
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def export_backup(request):
+    """تصدير النسخ الاحتياطي"""
+    try:
+        # جمع البيانات
+        data = {
+            'export_info': {
+                'date': datetime.now().isoformat(),
+                'version': '1.0',
+                'description': 'نسخ احتياطي كامل من نظام إدارة المستودع'
+            },
+            'warehouses': json.loads(serializers.serialize('json', Warehouse.objects.all())),
+            'locations': json.loads(serializers.serialize('json', Location.objects.all())),
+            'products': json.loads(serializers.serialize('json', Product.objects.all())),
+            'audit_logs': json.loads(serializers.serialize('json', AuditLog.objects.all())),
+            'daily_reports': json.loads(serializers.serialize('json', DailyReportArchive.objects.all())),
+        }
+        
+        # إنشاء ملف JSON
+        json_data = json.dumps(data, ensure_ascii=False, indent=2)
+        
+        # إعداد الاستجابة
+        filename = f'backup_{datetime.now().strftime("%Y%m%d_%H%M%S")}.json'
+        response = HttpResponse(json_data, content_type='application/json')
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        
+        return response
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        })
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def import_backup(request):
+    """استيراد النسخ الاحتياطي"""
+    try:
+        if 'backup_file' not in request.FILES:
+            return JsonResponse({
+                'success': False,
+                'error': 'لم يتم إرسال ملف'
+            })
+        
+        uploaded_file = request.FILES['backup_file']
+        
+        # قراءة الملف
+        data = json.loads(uploaded_file.read().decode('utf-8'))
+        
+        # التحقق من صحة الملف
+        if 'export_info' not in data:
+            return JsonResponse({
+                'success': False,
+                'error': 'الملف غير صالح'
+            })
+        
+        clear_existing = request.POST.get('clear_existing', 'false') == 'true'
+        
+        # بدء الاستيراد
+        with transaction.atomic():
+            if clear_existing:
+                # حذف البيانات الموجودة
+                AuditLog.objects.all().delete()
+                Product.objects.all().delete()
+                Location.objects.all().delete()
+                Warehouse.objects.all().delete()
+                DailyReportArchive.objects.all().delete()
+            
+            # استيراد البيانات
+            if 'warehouses' in data:
+                objects = serializers.deserialize('json', json.dumps(data['warehouses']))
+                for obj in objects:
+                    obj.save()
+            
+            if 'locations' in data:
+                objects = serializers.deserialize('json', json.dumps(data['locations']))
+                for obj in objects:
+                    obj.save()
+            
+            if 'products' in data:
+                objects = serializers.deserialize('json', json.dumps(data['products']))
+                for obj in objects:
+                    obj.save()
+            
+            if 'audit_logs' in data:
+                objects = serializers.deserialize('json', json.dumps(data['audit_logs']))
+                for obj in objects:
+                    obj.save()
+            
+            if 'daily_reports' in data:
+                objects = serializers.deserialize('json', json.dumps(data['daily_reports']))
+                for obj in objects:
+                    obj.save()
+        
+        return JsonResponse({
+            'success': True,
+            'message': 'تم الاستيراد بنجاح'
+        })
+        
+    except json.JSONDecodeError:
+        return JsonResponse({
+            'success': False,
+            'error': 'الملف غير صالح'
+        })
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        })
+
+
+def data_deletion_page(request):
+    """صفحة حذف البيانات"""
+    # إحصائيات البيانات
+    stats = {
+        'warehouses': Warehouse.objects.count(),
+        'locations': Location.objects.count(),
+        'products': Product.objects.count(),
+        'audit_logs': AuditLog.objects.count(),
+        'daily_reports': DailyReportArchive.objects.count(),
+    }
+    
+    return render(request, 'inventory_app/data_deletion.html', {
+        'stats': stats
+    })
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+@transaction.atomic
+def delete_data(request):
+    """حذف البيانات المحددة"""
+    try:
+        data = json.loads(request.body)
+        
+        # قراءة البيانات المحددة للحذف
+        delete_products = data.get('delete_products', False)
+        delete_locations = data.get('delete_locations', False)
+        delete_warehouses = data.get('delete_warehouses', False)
+        delete_audit_logs = data.get('delete_audit_logs', False)
+        delete_daily_reports = data.get('delete_daily_reports', False)
+        
+        deleted_items = []
+        
+        # حذف البيانات المحددة
+        if delete_products:
+            count = Product.objects.count()
+            Product.objects.all().delete()
+            deleted_items.append(f'{count} منتج')
+        
+        if delete_warehouses:
+            count = Warehouse.objects.count()
+            Warehouse.objects.all().delete()
+            deleted_items.append(f'{count} مستودع')
+        
+        if delete_locations:
+            count = Location.objects.count()
+            Location.objects.all().delete()
+            deleted_items.append(f'{count} مكان')
+        
+        if delete_audit_logs:
+            count = AuditLog.objects.count()
+            AuditLog.objects.all().delete()
+            deleted_items.append(f'{count} سجل عمليات')
+        
+        if delete_daily_reports:
+            count = DailyReportArchive.objects.count()
+            DailyReportArchive.objects.all().delete()
+            deleted_items.append(f'{count} تقرير يومي')
+        
+        if not deleted_items:
+            return JsonResponse({
+                'success': False,
+                'error': 'لم يتم تحديد أي بيانات للحذف'
+            })
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'تم حذف: {", ".join(deleted_items)}'
+        })
+        
+    except json.JSONDecodeError:
+        return JsonResponse({
+            'success': False,
+            'error': 'البيانات غير صالحة'
+        })
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        })
 

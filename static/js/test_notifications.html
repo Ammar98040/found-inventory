@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <title>اختبار الإشعارات</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 50px;
+            background: #f0f0f0;
+        }
+        .test-section {
+            background: white;
+            padding: 30px;
+            margin: 20px 0;
+            border-radius: 10px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            margin: 5px;
+            font-size: 16px;
+        }
+        button:hover {
+            background: #5568d3;
+        }
+    </style>
+    <link rel="stylesheet" href="css/notifications.css">
+</head>
+<body>
+    <h1>اختبار نظام الإشعارات</h1>
+    
+    <div class="test-section">
+        <h2>إشعارات المنتجات</h2>
+        <button onclick="testAdded()">✅ إضافة منتج</button>
+        <button onclick="testUpdated()">✏️ تعديل منتج</button>
+        <button onclick="testDeleted()">❌ حذف منتج</button>
+        <button onclick="testLocationAssigned()">📍 تخصيص موقع</button>
+    </div>
+    
+    <div class="test-section">
+        <h2>إشعارات الأماكن</h2>
+        <button onclick="testLocationCreated()">➕ إنشاء موقع</button>
+        <button onclick="testLocationUpdated()">✏️ تحديث موقع</button>
+        <button onclick="testLocationDeleted()">❌ حذف موقع</button>
+    </div>
+    
+    <div class="test-section">
+        <h2>إشعارات المستودع</h2>
+        <button onclick="testRowAdded()">➕ إضافة صف</button>
+        <button onclick="testColumnAdded()">➕ إضافة عمود</button>
+    </div>
+    
+    <div class="test-section">
+        <h2>إشعارات عامة</h2>
+        <button onclick="testSuccess()">✅ نجاح</button>
+        <button onclick="testError()">❌ خطأ</button>
+        <button onclick="testWarning()">⚠️ تحذير</button>
+        <button onclick="testInfo()">ℹ️ معلومات</button>
+    </div>
+    
+    <script src="js/notifications.js"></script>
+    <script>
+        // اختبار إشعارات المنتجات
+        function testAdded() {
+            ProductNotifications.added('BAG-001', 'حقيبة سفر');
+        }
+        
+        function testUpdated() {
+            ProductNotifications.updated('BAG-001', 'حقيبة سفر محسّنة');
+        }
+        
+        function testDeleted() {
+            ProductNotifications.deleted('BAG-001', 'حقيبة سفر');
+        }
+        
+        function testLocationAssigned() {
+            ProductNotifications.locationAssigned('BAG-001', 'R1C1');
+        }
+        
+        // اختبار إشعارات الأماكن
+        function testLocationCreated() {
+            LocationNotifications.created('R1C1');
+        }
+        
+        function testLocationUpdated() {
+            LocationNotifications.updated('R2C3');
+        }
+        
+        function testLocationDeleted() {
+            LocationNotifications.deleted('R3C5');
+        }
+        
+        // اختبار إشعارات المستودع
+        function testRowAdded() {
+            WarehouseNotifications.rowAdded(7);
+        }
+        
+        function testColumnAdded() {
+            WarehouseNotifications.columnAdded(16);
+        }
+        
+        // اختبار إشعارات عامة
+        function testSuccess() {
+            Notifications.success('نجح!', 'تمت العملية بنجاح');
+        }
+        
+        function testError() {
+            Notifications.error('خطأ!', 'حدث خطأ في العملية');
+        }
+        
+        function testWarning() {
+            Notifications.warning('تحذير!', 'الكمية منخفضة');
+        }
+        
+        function testInfo() {
+            Notifications.info('معلومة', 'تم التحديث تلقائياً');
+        }
+    </script>
+</body>
+</html>
+

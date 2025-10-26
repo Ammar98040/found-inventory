@@ -122,3 +122,31 @@ class AuditLog(models.Model):
     def __str__(self):
         return f"{self.get_action_display()} - {self.product_number} - {self.created_at.strftime('%Y-%m-%d %H:%M')}"
 
+
+class DailyReportArchive(models.Model):
+    """نموذج لحفظ التقارير اليومية"""
+    report_date = models.DateField(verbose_name='تاريخ التقرير', unique=True)
+    hijri_date = models.CharField(max_length=100, verbose_name='التاريخ الهجري', blank=True)
+    
+    # الإحصائيات
+    products_added = models.IntegerField(default=0, verbose_name='منتجات مضافة')
+    products_updated = models.IntegerField(default=0, verbose_name='منتجات محدثة')
+    products_deleted = models.IntegerField(default=0, verbose_name='منتجات محذوفة')
+    quantities_taken = models.IntegerField(default=0, verbose_name='كميات مسحوبة')
+    locations_assigned = models.IntegerField(default=0, verbose_name='مواقع مخصصة')
+    total_added = models.IntegerField(default=0, verbose_name='إجمالي الكميات المضافة')
+    total_removed = models.IntegerField(default=0, verbose_name='إجمالي الكميات المسحوبة')
+    
+    # بيانات JSON كاملة
+    report_data = models.JSONField(verbose_name='بيانات التقرير', default=dict)
+    
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='تاريخ الإنشاء')
+    
+    class Meta:
+        verbose_name = 'تقرير يومي محفوظ'
+        verbose_name_plural = 'التقارير اليومية المحفوظة'
+        ordering = ['-report_date']
+    
+    def __str__(self):
+        return f"تقرير {self.report_date}"
+

@@ -6,6 +6,13 @@
     <title>قائمة المنتجات</title>
     {% load static %}
     <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    <link rel="stylesheet" href="{% static 'css/sidebar.css' %}">
+    <link rel="stylesheet" href="{% static 'css/quick_search.css' %}">
+    <link rel="stylesheet" href="{% static 'css/notifications.css' %}">
+    
+    <!-- مكتبات PDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
         .page-header {
             display: flex;
@@ -125,9 +132,17 @@
     <div class="container">
         <div class="page-header">
             <h1>📦 قائمة المنتجات</h1>
-            <a href="/" class="btn btn-secondary">🔍 البحث</a>
-            <a href="/dashboard/" class="btn btn-secondary">📊 لوحة التحكم</a>
-            <a href="/products/add/" class="btn btn-primary">➕ إضافة منتج</a>
+            <div>
+                <button onclick="exportProductsToPDF()" class="btn btn-action" style="background: #ef4444; color: white; border: none; cursor: pointer;">
+                    📄 PDF
+                </button>
+                <a href="/export/products/excel/" class="btn btn-action" style="background: #10b981; color: white;">
+                    📊 Excel
+                </a>
+                <a href="/products/add/" class="btn btn-action" style="background: var(--primary-color); color: white;">
+                    ➕ إضافة منتج
+                </a>
+            </div>
         </div>
 
         <!-- البحث -->
@@ -204,6 +219,334 @@
             {% endif %}
         </div>
     </div>
+    
+    <!-- Sidebar -->
+    <button id="sidebar-toggle" onclick="toggleSidebar()">☰</button>
+    
+    <div id="sidebar-overlay"></div>
+    
+    <div id="main-sidebar">
+        <div class="sidebar-header">
+            <h2>🧭 القوائم</h2>
+            <button class="sidebar-close" onclick="toggleSidebar()">×</button>
+        </div>
+        
+        <!-- حقل البحث -->
+        <div class="sidebar-search">
+            <input type="text" id="sidebar-search-input" placeholder="🔍 ابحث في القوائم..." autocomplete="off">
+            <div id="sidebar-search-results"></div>
+        </div>
+        
+        <div class="sidebar-content" id="sidebar-main-content">
+            <div class="sidebar-section">
+                <div class="sidebar-title">الرئيسية</div>
+                <a href="/" class="sidebar-link">
+                    <span class="icon">🔍</span>
+                    <span class="text">البحث عن المنتجات</span>
+                </a>
+                <a href="/dashboard/" class="sidebar-link">
+                    <span class="icon">📊</span>
+                    <span class="text">لوحة التحكم</span>
+                </a>
+            </div>
+            
+            <div class="sidebar-section">
+                <div class="sidebar-title">إدارة المنتجات</div>
+                <a href="/products/" class="sidebar-link active">
+                    <span class="icon">📦</span>
+                    <span class="text">قائمة المنتجات</span>
+                </a>
+                <a href="/products/add/" class="sidebar-link">
+                    <span class="icon">➕</span>
+                    <span class="text">إضافة منتج جديد</span>
+                </a>
+            </div>
+            
+            <div class="sidebar-section">
+                <div class="sidebar-title">المستودع</div>
+                <a href="/manage/" class="sidebar-link">
+                    <span class="icon">⚙️</span>
+                    <span class="text">إدارة المستودع</span>
+                </a>
+                <a href="/locations/" class="sidebar-link">
+                    <span class="icon">📍</span>
+                    <span class="text">الأماكن</span>
+                </a>
+            </div>
+            
+            <div class="sidebar-section">
+                <div class="sidebar-title">السجلات</div>
+                <a href="/audit-logs/" class="sidebar-link">
+                    <span class="icon">📋</span>
+                    <span class="text">سجلات العمليات</span>
+                </a>
+            </div>
+            
+            <div class="sidebar-section">
+                <div class="sidebar-title">التقارير</div>
+                <a href="/daily-reports/" class="sidebar-link">
+                    <span class="icon">📊</span>
+                    <span class="text">التقارير اليومية</span>
+                </a>
+                <a href="/daily-reports-archive/" class="sidebar-link">
+                    <span class="icon">📚</span>
+                    <span class="text">سجل التقارير</span>
+                </a>
+            </div>
+            
+            <div class="sidebar-section">
+                <div class="sidebar-title">الصيانة</div>
+                <a href="/backup-restore/" class="sidebar-link">
+                    <span class="icon">💾</span>
+                    <span class="text">النسخ الاحتياطي</span>
+                </a>
+                <a href="/data-deletion/" class="sidebar-link">
+                    <span class="icon">🗑️</span>
+                    <span class="text">حذف البيانات</span>
+                </a>
+            </div>
+            
+            <div class="sidebar-section">
+                <div class="sidebar-title">الإحصائيات الحية</div>
+                <div class="stats-container">
+                    <!-- المنتجات -->
+                    <div class="stat-category">
+                        <div class="stat-category-title">📦 المنتجات</div>
+                        <div class="stat-item">
+                            <div class="stat-icon">📦</div>
+                            <div class="stat-info">
+                                <div class="stat-value" id="stats-products">-</div>
+                                <div class="stat-label">إجمالي</div>
+                            </div>
+                        </div>
+                        <div class="stat-item mini">
+                            <div class="stat-icon">✅</div>
+                            <div class="stat-info">
+                                <div class="stat-value" id="stats-products-with-locations">-</div>
+                                <div class="stat-label">لها موقع</div>
+                            </div>
+                        </div>
+                        <div class="stat-item mini">
+                            <div class="stat-icon">❌</div>
+                            <div class="stat-info">
+                                <div class="stat-value" id="stats-products-without-locations">-</div>
+                                <div class="stat-label">بدون موقع</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- الأماكن -->
+                    <div class="stat-category">
+                        <div class="stat-category-title">📍 الأماكن</div>
+                        <div class="stat-item">
+                            <div class="stat-icon">📊</div>
+                            <div class="stat-info">
+                                <div class="stat-value" id="stats-capacity">-</div>
+                                <div class="stat-label">السعة الإجمالية</div>
+                            </div>
+                        </div>
+                        <div class="stat-item mini">
+                            <div class="stat-icon">🟢</div>
+                            <div class="stat-info">
+                                <div class="stat-value" id="stats-occupied">-</div>
+                                <div class="stat-label">مشغولة</div>
+                            </div>
+                        </div>
+                        <div class="stat-item mini">
+                            <div class="stat-icon">⚪</div>
+                            <div class="stat-info">
+                                <div class="stat-value" id="stats-empty">-</div>
+                                <div class="stat-label">فارغة</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.1); font-size: 0.75rem; color: #94a3b8; text-align: center;">
+                        🟢 Live Mode - تحديث كل 15 ثانية
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="{% static 'js/sidebar.js' %}"></script>
+    <script src="{% static 'js/auto_refresh.js' %}"></script>
+    <script src="{% static 'js/quick_search.js' %}"></script>
+    <script src="{% static 'js/notifications.js' %}"></script>
+    
+    <script>
+        async function exportProductsToPDF() {
+            try {
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF('l', 'mm', 'a4'); // Landscape orientation
+                
+                // إنشاء عنصر HTML مؤقت للتصدير
+                const tempDiv = document.createElement('div');
+                tempDiv.style.position = 'fixed';
+                tempDiv.style.top = '0';
+                tempDiv.style.left = '0';
+                tempDiv.style.width = '1200px';
+                tempDiv.style.direction = 'rtl';
+                tempDiv.style.backgroundColor = 'white';
+                tempDiv.style.padding = '20px';
+                tempDiv.style.zIndex = '9999';
+                tempDiv.innerHTML = `
+                    <style>
+                        * {
+                            font-family: 'Arial', 'Tahoma', sans-serif;
+                            direction: rtl;
+                        }
+                        .header {
+                            text-align: center;
+                            margin-bottom: 30px;
+                            border-bottom: 3px solid #667eea;
+                            padding-bottom: 20px;
+                        }
+                        .header h1 {
+                            color: #667eea;
+                            font-size: 28px;
+                            margin: 0;
+                        }
+                        .info {
+                            display: flex;
+                            justify-content: space-between;
+                            margin-top: 10px;
+                            font-size: 14px;
+                            color: #64748b;
+                        }
+                        table {
+                            width: 100%;
+                            border-collapse: collapse;
+                            margin-top: 20px;
+                            background: white;
+                            font-size: 12px;
+                        }
+                        th {
+                            background: #667eea;
+                            color: white;
+                            padding: 10px;
+                            text-align: right;
+                            font-weight: bold;
+                            border: 1px solid #5568d3;
+                        }
+                        td {
+                            padding: 8px;
+                            text-align: right;
+                            border: 1px solid #e2e8f0;
+                        }
+                        tr:nth-child(even) {
+                            background: #f8fafc;
+                        }
+                        .footer {
+                            text-align: center;
+                            margin-top: 30px;
+                            padding-top: 20px;
+                            border-top: 2px solid #e2e8f0;
+                            color: #64748b;
+                            font-size: 12px;
+                        }
+                    </style>
+                    <div class="header">
+                        <h1>قائمة المنتجات</h1>
+                        <div class="info">
+                            <span>التاريخ: ${new Date().toLocaleDateString('ar-SA')}</span>
+                            <span>إجمالي المنتجات: {{ products.count }}</span>
+                        </div>
+                    </div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>رقم المنتج</th>
+                                <th>الاسم</th>
+                                <th>الفئة</th>
+                                <th>الكمية</th>
+                                <th>الموقع</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for product in products %}
+                            <tr>
+                                <td>{{ forloop.counter }}</td>
+                                <td><strong>{{ product.product_number }}</strong></td>
+                                <td>{{ product.name }}</td>
+                                <td>{{ product.category|default:"-" }}</td>
+                                <td>{{ product.quantity }}</td>
+                                <td>{% if product.location %}{{ product.location.full_location }}{% else %}بدون موقع{% endif %}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    <div class="footer">
+                        تم إنشاء هذا الملف تلقائياً من نظام إدارة المستودع
+                    </div>
+                `;
+                
+                document.body.appendChild(tempDiv);
+                
+                // انتظر قليلاً للتأكد من تحميل العنصر
+                await new Promise(resolve => setTimeout(resolve, 800));
+                
+                // تحويل HTML إلى canvas ثم إلى PDF
+                const canvas = await html2canvas(tempDiv, {
+                    scale: 1,
+                    useCORS: true,
+                    logging: false,
+                    backgroundColor: '#ffffff',
+                    width: 1200,
+                    height: tempDiv.scrollHeight,
+                    windowWidth: 1200,
+                    windowHeight: tempDiv.scrollHeight
+                });
+                
+                // إزالة العنصر المؤقت
+                document.body.removeChild(tempDiv);
+                
+                const pdfWidth = doc.internal.pageSize.getWidth();
+                const pdfHeight = doc.internal.pageSize.getHeight();
+                const imgWidth = canvas.width;
+                const imgHeight = canvas.height;
+                
+                // حساب الارتفاع المعدل
+                const ratio = pdfWidth / imgWidth;
+                const scaledHeight = imgHeight * ratio;
+                
+                // حساب عدد الصفحات المطلوبة
+                let totalPages = Math.ceil(scaledHeight / pdfHeight);
+                if (totalPages === 0) totalPages = 1;
+                
+                // إضافة الصور إلى صفحات متعددة
+                let yPosition = 0;
+                for (let i = 0; i < totalPages; i++) {
+                    if (i > 0) {
+                        doc.addPage();
+                        yPosition = 0;
+                    }
+                    
+                    const sourceY = i * (pdfHeight / ratio);
+                    const sourceHeight = Math.min(pdfHeight / ratio, imgHeight - sourceY);
+                    
+                    // إنشاء canvas مؤقت لكل صفحة
+                    const pageCanvas = document.createElement('canvas');
+                    pageCanvas.width = imgWidth;
+                    pageCanvas.height = sourceHeight;
+                    const ctx = pageCanvas.getContext('2d');
+                    
+                    // رسم جزء الصورة المطلوبة
+                    ctx.drawImage(canvas, 0, sourceY, imgWidth, sourceHeight, 0, 0, imgWidth, sourceHeight);
+                    
+                    const pageImgData = pageCanvas.toDataURL('image/png');
+                    doc.addImage(pageImgData, 'PNG', 0, yPosition, pdfWidth, sourceHeight * ratio);
+                }
+                
+                doc.save('قائمة_المنتجات_' + new Date().toISOString().split('T')[0] + '.pdf');
+                
+            } catch (error) {
+                console.error('Error exporting PDF:', error);
+                alert('حدث خطأ أثناء تصدير الملف. يرجى المحاولة مرة أخرى.\n' + error.message);
+            }
+        }
+    </script>
 </body>
 </html>
 

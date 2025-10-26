@@ -6,15 +6,156 @@
     <title>إدارة المستودع - Warehouse Management</title>
     {% load static %}
     <link rel="stylesheet" href="{% static 'css/warehouse_management.css' %}">
+    <link rel="stylesheet" href="{% static 'css/sidebar.css' %}">
+    <style>
+        /* تحسينات للشاشات الصغيرة */
+        @media (max-width: 768px) {
+            .container {
+                max-width: 100%;
+                padding: 10px 5px;
+            }
+            
+            header {
+                margin-bottom: 15px;
+                padding: 15px 10px;
+            }
+            
+            header h1 {
+                font-size: 1.5rem;
+                text-align: center;
+            }
+            
+            .info-panel {
+                display: grid;
+                grid-template-columns: 1fr;
+                gap: 10px;
+                margin-bottom: 15px;
+            }
+            
+            .info-item {
+                text-align: center;
+                padding: 15px 10px;
+            }
+            
+            .info-item .label {
+                font-size: 0.9rem;
+            }
+            
+            .info-item .value {
+                font-size: 1.5rem;
+            }
+            
+            .management-panel {
+                padding: 15px 10px;
+                margin-bottom: 15px;
+            }
+            
+            .management-panel h2 {
+                font-size: 1.2rem;
+                text-align: center;
+                margin-bottom: 15px;
+            }
+            
+            .btn-group {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 10px;
+                margin-bottom: 10px;
+            }
+            
+            .btn {
+                width: 100%;
+                padding: 12px;
+                font-size: 0.9rem;
+            }
+            
+            .warehouse-grid-container {
+                padding: 15px 10px;
+            }
+            
+            .warehouse-grid-container h2 {
+                font-size: 1.2rem;
+                text-align: center;
+                margin-bottom: 15px;
+            }
+            
+            /* تحسين الشبكة */
+            #warehouse-grid {
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+            
+            .grid-row {
+                min-width: max-content;
+            }
+            
+            .grid-cell {
+                min-width: 40px !important;
+                height: 40px !important;
+                font-size: 0.7rem;
+            }
+            
+            .grid-cell-header {
+                min-width: 35px !important;
+                height: 35px !important;
+                font-size: 0.7rem;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .container {
+                padding: 5px;
+            }
+            
+            header {
+                padding: 10px 5px;
+            }
+            
+            header h1 {
+                font-size: 1.2rem;
+            }
+            
+            .info-item {
+                padding: 10px 5px;
+            }
+            
+            .info-item .value {
+                font-size: 1.2rem;
+            }
+            
+            .management-panel,
+            .warehouse-grid-container {
+                padding: 10px 5px;
+            }
+            
+            .btn-group {
+                grid-template-columns: 1fr;
+                gap: 8px;
+            }
+            
+            .btn {
+                padding: 10px;
+                font-size: 0.85rem;
+            }
+            
+            .grid-cell {
+                min-width: 35px !important;
+                height: 35px !important;
+                font-size: 0.6rem;
+            }
+            
+            .grid-cell-header {
+                min-width: 30px !important;
+                height: 30px !important;
+                font-size: 0.6rem;
+            }
+        }
+    </style>
 </head>
 <body>
     <div class="container">
         <header>
             <h1>🏢 إدارة المستودع</h1>
-            <div class="header-actions">
-                <a href="/" class="btn btn-primary">🔍 البحث</a>
-                <a href="/products/" class="btn btn-secondary">📦 المنتجات</a>
-            </div>
         </header>
 
         <div class="info-panel">
@@ -66,7 +207,158 @@
         <div id="error-message" class="alert alert-error" style="display: none;"></div>
     </div>
 
+    <!-- Sidebar -->
+    <button id="sidebar-toggle" onclick="toggleSidebar()">☰</button>
+    
+    <div id="sidebar-overlay"></div>
+    
+    <div id="main-sidebar">
+        <div class="sidebar-header">
+            <h2>🧭 القوائم</h2>
+            <button class="sidebar-close" onclick="toggleSidebar()">×</button>
+        </div>
+        
+        <!-- حقل البحث -->
+        <div class="sidebar-search">
+            <input type="text" id="sidebar-search-input" placeholder="🔍 ابحث في القوائم..." autocomplete="off">
+            <div id="sidebar-search-results"></div>
+        </div>
+        
+        <div class="sidebar-content" id="sidebar-main-content">
+            <div class="sidebar-section">
+                <div class="sidebar-title">الرئيسية</div>
+                <a href="/" class="sidebar-link">
+                    <span class="icon">🔍</span>
+                    <span class="text">البحث عن المنتجات</span>
+                </a>
+                <a href="/dashboard/" class="sidebar-link">
+                    <span class="icon">📊</span>
+                    <span class="text">لوحة التحكم</span>
+                </a>
+            </div>
+            
+            <div class="sidebar-section">
+                <div class="sidebar-title">إدارة المنتجات</div>
+                <a href="/products/" class="sidebar-link">
+                    <span class="icon">📦</span>
+                    <span class="text">قائمة المنتجات</span>
+                </a>
+                <a href="/products/add/" class="sidebar-link">
+                    <span class="icon">➕</span>
+                    <span class="text">إضافة منتج جديد</span>
+                </a>
+            </div>
+            
+            <div class="sidebar-section">
+                <div class="sidebar-title">المستودع</div>
+                <a href="/manage/" class="sidebar-link active">
+                    <span class="icon">⚙️</span>
+                    <span class="text">إدارة المستودع</span>
+                </a>
+                <a href="/locations/" class="sidebar-link">
+                    <span class="icon">📍</span>
+                    <span class="text">الأماكن</span>
+                </a>
+            </div>
+            
+            <div class="sidebar-section">
+                <div class="sidebar-title">السجلات</div>
+                <a href="/audit-logs/" class="sidebar-link">
+                    <span class="icon">📋</span>
+                    <span class="text">سجلات العمليات</span>
+                </a>
+            </div>
+            
+            <div class="sidebar-section">
+                <div class="sidebar-title">التقارير</div>
+                <a href="/daily-reports/" class="sidebar-link">
+                    <span class="icon">📊</span>
+                    <span class="text">التقارير اليومية</span>
+                </a>
+                <a href="/daily-reports-archive/" class="sidebar-link">
+                    <span class="icon">📚</span>
+                    <span class="text">سجل التقارير</span>
+                </a>
+            </div>
+            
+            <div class="sidebar-section">
+                <div class="sidebar-title">الصيانة</div>
+                <a href="/backup-restore/" class="sidebar-link">
+                    <span class="icon">💾</span>
+                    <span class="text">النسخ الاحتياطي</span>
+                </a>
+                <a href="/data-deletion/" class="sidebar-link">
+                    <span class="icon">🗑️</span>
+                    <span class="text">حذف البيانات</span>
+                </a>
+            </div>
+            
+            <div class="sidebar-section">
+                <div class="sidebar-title">الإحصائيات الحية</div>
+                <div class="stats-container">
+                    <!-- المنتجات -->
+                    <div class="stat-category">
+                        <div class="stat-category-title">📦 المنتجات</div>
+                        <div class="stat-item">
+                            <div class="stat-icon">📦</div>
+                            <div class="stat-info">
+                                <div class="stat-value" id="stats-products">-</div>
+                                <div class="stat-label">إجمالي</div>
+                            </div>
+                        </div>
+                        <div class="stat-item mini">
+                            <div class="stat-icon">✅</div>
+                            <div class="stat-info">
+                                <div class="stat-value" id="stats-products-with-locations">-</div>
+                                <div class="stat-label">لها موقع</div>
+                            </div>
+                        </div>
+                        <div class="stat-item mini">
+                            <div class="stat-icon">❌</div>
+                            <div class="stat-info">
+                                <div class="stat-value" id="stats-products-without-locations">-</div>
+                                <div class="stat-label">بدون موقع</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- الأماكن -->
+                    <div class="stat-category">
+                        <div class="stat-category-title">📍 الأماكن</div>
+                        <div class="stat-item">
+                            <div class="stat-icon">📊</div>
+                            <div class="stat-info">
+                                <div class="stat-value" id="stats-capacity">-</div>
+                                <div class="stat-label">السعة الإجمالية</div>
+                            </div>
+                        </div>
+                        <div class="stat-item mini">
+                            <div class="stat-icon">🟢</div>
+                            <div class="stat-info">
+                                <div class="stat-value" id="stats-occupied">-</div>
+                                <div class="stat-label">مشغولة</div>
+                            </div>
+                        </div>
+                        <div class="stat-item mini">
+                            <div class="stat-icon">⚪</div>
+                            <div class="stat-info">
+                                <div class="stat-value" id="stats-empty">-</div>
+                                <div class="stat-label">فارغة</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.1); font-size: 0.75rem; color: #94a3b8; text-align: center;">
+                        🟢 Live Mode - تحديث كل 15 ثانية
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="{% static 'js/sidebar.js' %}"></script>
     <script src="{% static 'js/warehouse_management.js' %}"></script>
+    <script src="{% static 'js/auto_refresh.js' %}"></script>
 </body>
 </html>
 
