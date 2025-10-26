@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>لوحة التحكم - Dashboard</title>
+    {% load static %}
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    <style>
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin: 30px 0;
+        }
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 30px;
+            border-radius: 12px;
+            color: white;
+            text-align: center;
+            box-shadow: 0 10px 15px rgba(0, 0, 0, 0.1);
+        }
+        .stat-card.products {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+        .stat-card.locations {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        }
+        .stat-card.capacity {
+            background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+        }
+        .stat-icon {
+            font-size: 3rem;
+            margin-bottom: 15px;
+        }
+        .stat-number {
+            font-size: 2.5rem;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+        .stat-label {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+        .quick-actions {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 30px;
+        }
+        
+        @media (max-width: 768px) {
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+            .stat-card {
+                padding: 20px;
+            }
+            .stat-icon {
+                font-size: 2rem;
+            }
+            .stat-number {
+                font-size: 1.8rem;
+            }
+            .quick-actions {
+                grid-template-columns: 1fr;
+            }
+            .page-header div {
+                flex-direction: column;
+                gap: 10px;
+            }
+        }
+        .action-btn {
+            padding: 20px;
+            background: white;
+            border: 2px solid var(--border-color);
+            border-radius: 12px;
+            text-decoration: none;
+            text-align: center;
+            transition: all 0.3s;
+            color: var(--text-primary);
+        }
+        .action-btn:hover {
+            border-color: var(--primary-color);
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+        .action-icon {
+            font-size: 2rem;
+            margin-bottom: 10px;
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📊 لوحة التحكم</h1>
+            <div>
+                <a href="/" class="btn btn-secondary">🔍 البحث</a>
+                <a href="/manage/" class="btn btn-primary">📦 إدارة المستودع</a>
+                <a href="/products/" class="btn btn-secondary">📦 المنتجات</a>
+            </div>
+        </header>
+
+        <!-- إحصائيات -->
+        <div class="dashboard-grid">
+            <div class="stat-card">
+                <div class="stat-icon">🏢</div>
+                <div class="stat-number">{{ warehouse.name|default:"المستودع الرئيسي" }}</div>
+                <div class="stat-label">المستودع</div>
+                <div style="margin-top: 15px; font-size: 0.9rem; opacity: 0.8;">
+                    {{ warehouse.rows_count }} صف × {{ warehouse.columns_count }} عمود
+                </div>
+            </div>
+
+            <div class="stat-card products">
+                <div class="stat-icon">📦</div>
+                <div class="stat-number">{{ products_count }}</div>
+                <div class="stat-label">المنتجات</div>
+                <a href="/products/" style="color: white; text-decoration: underline; display: inline-block; margin-top: 10px;">
+                    عرض المنتجات →
+                </a>
+            </div>
+
+            <div class="stat-card locations">
+                <div class="stat-icon">📍</div>
+                <div class="stat-number">{{ locations_count }}</div>
+                <div class="stat-label">الأماكن</div>
+                <div style="margin-top: 15px; font-size: 0.9rem; opacity: 0.8;">
+                    {{ locations_count }} موقع متاح
+                </div>
+            </div>
+
+            <div class="stat-card capacity">
+                <div class="stat-icon">⚡</div>
+                <div class="stat-number">{{ total_capacity }}</div>
+                <div class="stat-label">السعة الكلية</div>
+                <div style="margin-top: 15px; font-size: 0.9rem; opacity: 0.8;">
+                    موقع
+                </div>
+            </div>
+        </div>
+
+        <!-- إجراءات سريعة -->
+        <div style="background: white; padding: 30px; border-radius: 12px; box-shadow: var(--shadow-lg); margin-top: 30px;">
+            <h2 style="margin-bottom: 20px;">⚡ إجراءات سريعة</h2>
+            <div class="quick-actions">
+                <a href="/" class="action-btn">
+                    <span class="action-icon">🔍</span>
+                    <strong>البحث عن المنتجات</strong>
+                    <p style="margin-top: 5px; color: var(--text-secondary); font-size: 0.9rem;">
+                        ابحث عن منتجاتك فوراً
+                    </p>
+                </a>
+
+                <a href="/products/" class="action-btn">
+                    <span class="action-icon">📦</span>
+                    <strong>قائمة المنتجات</strong>
+                    <p style="margin-top: 5px; color: var(--text-secondary); font-size: 0.9rem;">
+                        عرض جميع المنتجات
+                    </p>
+                </a>
+
+                <a href="/manage/" class="action-btn">
+                    <span class="action-icon">⚙️</span>
+                    <strong>إدارة المستودع</strong>
+                    <p style="margin-top: 5px; color: var(--text-secondary); font-size: 0.9rem;">
+                        إضافة/حذف صفوف وأعمدة
+                    </p>
+                </a>
+
+                <a href="/locations/" class="action-btn">
+                    <span class="action-icon">📍</span>
+                    <strong>الأماكن</strong>
+                    <p style="margin-top: 5px; color: var(--text-secondary); font-size: 0.9rem;">
+                        عرض جميع الأماكن
+                    </p>
+                </a>
+
+                <a href="/audit-logs/" class="action-btn">
+                    <span class="action-icon">📋</span>
+                    <strong>سجلات العمليات</strong>
+                    <p style="margin-top: 5px; color: var(--text-secondary); font-size: 0.9rem;">
+                        تتبع جميع العمليات
+                    </p>
+                </a>
+            </div>
+        </div>
+
+        <!-- معلومات المستودع -->
+        <div style="background: white; padding: 30px; border-radius: 12px; box-shadow: var(--shadow-lg); margin-top: 30px;">
+            <h2>📋 معلومات المستودع</h2>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-top: 20px;">
+                <div style="padding: 15px; background: #f8fafc; border-radius: 8px;">
+                    <div style="font-weight: bold; color: var(--primary-color); margin-bottom: 5px;">عدد الصفوف</div>
+                    <div style="font-size: 1.5rem;">{{ warehouse.rows_count }}</div>
+                </div>
+                <div style="padding: 15px; background: #f8fafc; border-radius: 8px;">
+                    <div style="font-weight: bold; color: var(--primary-color); margin-bottom: 5px;">عدد الأعمدة</div>
+                    <div style="font-size: 1.5rem;">{{ warehouse.columns_count }}</div>
+                </div>
+                <div style="padding: 15px; background: #f8fafc; border-radius: 8px;">
+                    <div style="font-weight: bold; color: var(--primary-color); margin-bottom: 5px;">السعة الكلية</div>
+                    <div style="font-size: 1.5rem;">{{ total_capacity }}</div>
+                </div>
+                <div style="padding: 15px; background: #f8fafc; border-radius: 8px;">
+                    <div style="font-weight: bold; color: var(--primary-color); margin-bottom: 5px;">الأماكن المستخدمة</div>
+                    <div style="font-size: 1.5rem;">
+                        {% if warehouse %}
+                            {% with ratio=warehouse.locations.count|floatformat:0 %}
+                                {{ ratio|default:0 }}
+                            {% endwith %}
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- روابط سريعة -->
+        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 12px; color: white; margin-top: 30px; text-align: center;">
+            <h2 style="margin-bottom: 20px;">🚀 ابدأ الآن</h2>
+            <p style="margin-bottom: 20px; font-size: 1.1rem;">استكشف جميع ميزات النظام</p>
+            <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+                <a href="/" style="background: white; color: #667eea; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold;">
+                    🔍 البحث
+                </a>
+                <a href="/products/" style="background: white; color: #667eea; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold;">
+                    📦 المنتجات
+                </a>
+                <a href="/manage/" style="background: white; color: #667eea; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold;">
+                    ⚙️ الإدارة
+                </a>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+

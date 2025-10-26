@@ -1,0 +1,609 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+:root {
+    --primary-color: #2563eb;
+    --secondary-color: #64748b;
+    --success-color: #10b981;
+    --error-color: #ef4444;
+    --warning-color: #f59e0b;
+    --bg-color: #f8fafc;
+    --card-bg: #ffffff;
+    --text-primary: #1e293b;
+    --text-secondary: #64748b;
+    --border-color: #e2e8f0;
+    --shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: var(--bg-color);
+    color: var(--text-primary);
+    line-height: 1.6;
+    padding: 20px;
+    min-height: 100vh;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+header {
+    text-align: center;
+    margin-bottom: 40px;
+    padding: 30px 0;
+}
+
+header h1 {
+    font-size: 2.5rem;
+    color: var(--primary-color);
+    margin-bottom: 10px;
+}
+
+.subtitle {
+    color: var(--text-secondary);
+    font-size: 1.1rem;
+}
+
+.main-content {
+    display: grid;
+    gap: 30px;
+}
+
+/* قسم الإدخال */
+.input-section {
+    background: var(--card-bg);
+    padding: 30px;
+    border-radius: 12px;
+    box-shadow: var(--shadow-lg);
+}
+
+.input-group {
+    margin-bottom: 20px;
+}
+
+.input-group label {
+    display: block;
+    margin-bottom: 10px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.input-group textarea {
+    width: 100%;
+    padding: 15px;
+    border: 2px solid var(--border-color);
+    border-radius: 8px;
+    font-size: 1rem;
+    font-family: inherit;
+    resize: vertical;
+    transition: border-color 0.3s;
+}
+
+.input-group textarea:focus {
+    outline: none;
+    border-color: var(--primary-color);
+}
+
+.hint {
+    display: block;
+    margin-top: 5px;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+/* الأزرار */
+.btn {
+    padding: 12px 24px;
+    font-size: 1rem;
+    font-weight: 600;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: 10px;
+}
+
+.btn-primary {
+    background: var(--primary-color);
+    color: white;
+}
+
+.btn-primary:hover {
+    background: #1d4ed8;
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg);
+}
+
+.btn-secondary {
+    background: var(--secondary-color);
+    color: white;
+}
+
+.btn-secondary:hover {
+    background: #475569;
+}
+
+.btn-icon {
+    font-size: 1.2rem;
+}
+
+.btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* نتائج البحث */
+.results-section {
+    background: var(--card-bg);
+    padding: 20px;
+    border-radius: 12px;
+    box-shadow: var(--shadow-lg);
+}
+
+.results-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid var(--border-color);
+}
+
+.results-header h2 {
+    color: var(--text-primary);
+    font-size: 1.3rem;
+}
+
+.badge {
+    background: var(--primary-color);
+    color: white;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 0.85rem;
+}
+
+/* بطاقات المنتجات - Grid Layout */
+.results-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 10px;
+}
+
+.product-card {
+    background: var(--bg-color);
+    padding: 10px;
+    border-radius: 8px;
+    border: 2px solid var(--border-color);
+    transition: all 0.3s;
+    font-size: 0.85rem;
+}
+
+.product-card:hover {
+    border-color: var(--primary-color);
+    box-shadow: var(--shadow);
+    transform: translateY(-2px);
+}
+
+.product-card.not-found {
+    background: #fef2f2;
+    border-color: var(--error-color);
+}
+
+.product-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+    font-size: 0.9rem;
+}
+
+.product-info h3 {
+    color: var(--primary-color);
+    margin-bottom: 3px;
+    font-size: 0.95rem;
+}
+
+.product-number {
+    font-family: monospace;
+    font-size: 0.95rem;
+    font-weight: bold;
+}
+
+.product-name {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+.status {
+    padding: 5px 15px;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.status.found {
+    background: #d1fae5;
+    color: #065f46;
+}
+
+.status.not-found {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+/* أماكن المنتج */
+.locations-list {
+    margin-top: 8px;
+}
+
+.locations-list h4 {
+    color: var(--text-primary);
+    margin-bottom: 6px;
+    font-size: 0.85rem;
+}
+
+.location-item {
+    background: white;
+    padding: 6px 10px;
+    margin-bottom: 5px;
+    border-radius: 4px;
+    border-right: 3px solid var(--primary-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.8rem;
+}
+
+.location-info {
+    flex: 1;
+}
+
+.location-id {
+    font-weight: bold;
+    color: var(--primary-color);
+    font-family: monospace;
+    font-size: 0.85rem;
+}
+
+.location-details {
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+    margin-top: 5px;
+}
+
+.location-actions button {
+    padding: 3px 8px;
+    background: var(--primary-color);
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.75rem;
+}
+
+/* عرض المستودع */
+.warehouse-view {
+    background: var(--card-bg);
+    padding: 30px;
+    border-radius: 12px;
+    box-shadow: var(--shadow-lg);
+    margin-top: 30px;
+    overflow-x: auto;
+}
+
+.warehouse-view h2 {
+    margin-bottom: 20px;
+    color: var(--text-primary);
+    font-size: 1.8rem;
+    text-align: center;
+}
+
+#warehouse-canvas {
+    border: 3px solid var(--border-color);
+    border-radius: 12px;
+    max-width: 100%;
+    background: #f8fafc;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    display: block;
+    margin: 0 auto;
+}
+
+/* الرسائل */
+.loading {
+    text-align: center;
+    padding: 40px;
+}
+
+.spinner {
+    border: 4px solid var(--border-color);
+    border-top: 4px solid var(--primary-color);
+    border-radius: 50%;
+    width: 50px;
+    height: 50px;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 20px;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.alert {
+    padding: 15px 20px;
+    border-radius: 8px;
+    margin: 20px 0;
+}
+
+.alert-error {
+    background: #fee2e2;
+    color: #991b1b;
+    border: 1px solid #fecaca;
+}
+
+.alert-warning {
+    background: #fef3c7;
+    color: #92400e;
+    border: 1px solid #fde68a;
+}
+
+.alert code {
+    background: rgba(0, 0, 0, 0.1);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: monospace;
+    font-size: 0.9em;
+}
+
+/* استجابة الشاشات الكبيرة والصغيرة */
+@media (max-width: 1200px) {
+    .container {
+        max-width: 95%;
+        padding: 10px;
+    }
+}
+
+@media (max-width: 768px) {
+    body {
+        padding: 10px;
+    }
+    
+    header h1 {
+        font-size: 1.5rem;
+    }
+    
+    header {
+        margin-bottom: 20px;
+        padding: 15px 0;
+    }
+    
+    .subtitle {
+        font-size: 0.9rem;
+    }
+    
+    .input-section,
+    .results-section,
+    .warehouse-view {
+        padding: 15px;
+    }
+    
+    .btn {
+        display: block;
+        width: 100%;
+        margin: 5px 0;
+        font-size: 0.9rem;
+        padding: 10px 16px;
+    }
+    
+    .product-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .results-container {
+        grid-template-columns: 1fr;
+        gap: 10px;
+    }
+    
+    .product-card {
+        font-size: 0.8rem;
+        padding: 8px;
+    }
+    
+    /* Header buttons in mobile */
+    .page-header {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 15px;
+    }
+    
+    .page-header > div {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    /* Dashboard grid responsive */
+    .dashboard-grid,
+    .quick-actions {
+        grid-template-columns: 1fr;
+    }
+    
+    .stat-card {
+        padding: 20px;
+    }
+    
+    .stat-icon {
+        font-size: 2rem;
+    }
+    
+    .stat-number {
+        font-size: 2rem;
+    }
+    
+    /* Tables responsive */
+    table {
+        font-size: 0.85rem;
+    }
+    
+    th, td {
+        padding: 8px;
+        font-size: 0.85rem;
+    }
+    
+    /* Warehouse canvas responsive */
+    #warehouse-canvas {
+        width: 100%;
+        height: auto;
+    }
+    
+    /* Audit logs responsive */
+    .operation-section {
+        padding: 15px;
+    }
+    
+    .operation-header h2 {
+        font-size: 1.2rem;
+    }
+    
+    .log-entry {
+        padding: 12px;
+        font-size: 0.85rem;
+    }
+}
+
+@media (max-width: 480px) {
+    header h1 {
+        font-size: 1.2rem;
+    }
+    
+    .subtitle {
+        font-size: 0.8rem;
+    }
+    
+    .input-section,
+    .results-section {
+        padding: 10px;
+    }
+    
+    .btn {
+        font-size: 0.8rem;
+        padding: 8px 12px;
+    }
+    
+    .stat-icon {
+        font-size: 1.5rem;
+    }
+    
+    .stat-number {
+        font-size: 1.5rem;
+    }
+    
+    .action-icon {
+        font-size: 1.5rem;
+    }
+    
+    th, td {
+        padding: 5px;
+        font-size: 0.75rem;
+    }
+    
+    .product-card {
+        font-size: 0.75rem;
+        padding: 5px;
+    }
+    
+    .location-item {
+        font-size: 0.75rem;
+        padding: 5px 8px;
+    }
+}
+
+/* Landscape orientation for tablets */
+@media (min-width: 768px) and (max-width: 1024px) and (orientation: landscape) {
+    .results-container {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .dashboard-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+/* تأثيرات الحركة */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.product-card,
+.location-item {
+    animation: fadeIn 0.3s ease-in;
+}
+
+/* Responsive table wrapper */
+.table-wrapper {
+    overflow-x: auto;
+    margin: 0 -20px;
+    padding: 0 20px;
+}
+
+@media (min-width: 769px) {
+    .table-wrapper {
+        margin: 0;
+        padding: 0;
+    }
+}
+
+/* Ensure buttons work on touch devices */
+.btn,
+.action-btn,
+.btn-action {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+}
+
+/* Responsive audit logs */
+@media (max-width: 768px) {
+    .operation-section {
+        padding: 15px;
+        margin-bottom: 20px;
+    }
+    
+    .operation-header h2 {
+        font-size: 1.1rem;
+    }
+    
+    .log-entry > div {
+        grid-template-columns: 1fr;
+        gap: 8px;
+    }
+}
+
+/* Responsive warehouse management */
+@media (max-width: 768px) {
+    .warehouse-view {
+        padding: 15px;
+    }
+    
+    #warehouse-canvas {
+        width: 100%;
+        max-width: 100%;
+    }
+}
+

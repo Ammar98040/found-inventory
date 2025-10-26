@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>إدارة المستودع - Warehouse Management</title>
+    {% load static %}
+    <link rel="stylesheet" href="{% static 'css/warehouse_management.css' %}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🏢 إدارة المستودع</h1>
+            <div class="header-actions">
+                <a href="/" class="btn btn-primary">🔍 البحث</a>
+                <a href="/products/" class="btn btn-secondary">📦 المنتجات</a>
+            </div>
+        </header>
+
+        <div class="info-panel">
+            <div class="info-item">
+                <span class="label">عدد الصفوف:</span>
+                <span class="value" id="rows-count">{{ warehouse.rows_count }}</span>
+            </div>
+            <div class="info-item">
+                <span class="label">عدد الأعمدة:</span>
+                <span class="value" id="columns-count">{{ warehouse.columns_count }}</span>
+            </div>
+            <div class="info-item">
+                <span class="label">إجمالي المواقع:</span>
+                <span class="value" id="total-cells">-</span>
+            </div>
+        </div>
+
+        <div class="management-panel">
+            <h2>⚙️ إدارة الشبكة</h2>
+            <div class="btn-group">
+                <button onclick="addRow()" class="btn btn-success">
+                    ➕ إضافة صف
+                </button>
+                <button onclick="addColumn()" class="btn btn-success">
+                    ➕ إضافة عمود
+                </button>
+                <button onclick="deleteLastRow()" class="btn btn-danger">
+                    ➖ حذف آخر صف
+                </button>
+                <button onclick="deleteLastColumn()" class="btn btn-danger">
+                    ➖ حذف آخر عمود
+                </button>
+            </div>
+            <button onclick="refreshGrid()" class="btn btn-info">
+                🔄 تحديث الشبكة
+            </button>
+        </div>
+
+        <div class="warehouse-grid-container">
+            <h2>📦 شبكة المستودع</h2>
+            <div id="warehouse-grid" class="warehouse-grid"></div>
+        </div>
+
+        <div id="loading" class="loading" style="display: none;">
+            <div class="spinner"></div>
+            <p>جاري التحميل...</p>
+        </div>
+
+        <div id="error-message" class="alert alert-error" style="display: none;"></div>
+    </div>
+
+    <script src="{% static 'js/warehouse_management.js' %}"></script>
+</body>
+</html>
+

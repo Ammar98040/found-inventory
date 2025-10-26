@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>قائمة المستودعات</title>
+    {% load static %}
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+</head>
+<body>
+    <div class="container">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">
+            <h1>🏢 قائمة المستودعات</h1>
+            <div>
+                <a href="/dashboard/" class="btn btn-secondary">📊 لوحة التحكم</a>
+                <a href="/manage/" class="btn btn-secondary">⚙️ إدارة المستودع</a>
+                <a href="/products/" class="btn btn-primary">📦 المنتجات</a>
+            </div>
+        </div>
+
+        <div style="background: white; padding: 30px; border-radius: 12px; box-shadow: var(--shadow-lg);">
+            {% for warehouse in warehouses %}
+                <div style="background: #f8fafc; padding: 25px; margin-bottom: 20px; border-radius: 8px; border-right: 4px solid var(--primary-color);">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <h2 style="margin: 0; color: var(--primary-color);">{{ warehouse.name }}</h2>
+                            <p style="margin: 10px 0; color: var(--text-secondary);">{{ warehouse.description|default:"لا يوجد وصف" }}</p>
+                            <div style="display: flex; gap: 20px; margin-top: 15px;">
+                                <span><strong>الصفوف:</strong> {{ warehouse.rows_count }}</span>
+                                <span><strong>الأعمدة:</strong> {{ warehouse.columns_count }}</span>
+                                <span><strong>السعة:</strong> {{ warehouse.rows_count }}×{{ warehouse.columns_count }}</span>
+                            </div>
+                        </div>
+                        <a href="/warehouses/{{ warehouse.id }}/" class="btn btn-primary">
+                            عرض التفاصيل →
+                        </a>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+</body>
+</html>
+

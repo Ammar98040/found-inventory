@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>تفاصيل المنتج - {{ product.product_number }}</title>
+    {% load static %}
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    <style>
+        .product-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 40px;
+            border-radius: 12px;
+            color: white;
+            margin-bottom: 30px;
+        }
+        .product-info {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: var(--shadow-lg);
+            margin-bottom: 20px;
+        }
+        .info-row {
+            display: flex;
+            padding: 15px;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .info-row:last-child {
+            border-bottom: none;
+        }
+        .info-label {
+            font-weight: bold;
+            width: 150px;
+            color: var(--text-secondary);
+        }
+        .info-value {
+            color: var(--text-primary);
+            flex: 1;
+        }
+        .locations-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+        .location-box {
+            background: #dcfce7;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            border: 2px solid #10b981;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">
+            <a href="/products/" class="btn btn-secondary">← العودة للقائمة</a>
+            <h1>📦 تفاصيل المنتج</h1>
+        </div>
+
+        <div class="product-header">
+            <h1 style="margin: 0; font-size: 2.5rem;">{{ product.product_number }}</h1>
+            <p style="margin: 10px 0 0; font-size: 1.2rem; opacity: 0.9;">{{ product.name }}</p>
+        </div>
+
+        <div class="product-info">
+            <h2 style="margin-bottom: 20px;">📋 المعلومات</h2>
+            <div class="info-row">
+                <div class="info-label">رقم المنتج:</div>
+                <div class="info-value"><strong>{{ product.product_number }}</strong></div>
+            </div>
+            <div class="info-row">
+                <div class="info-label">الاسم:</div>
+                <div class="info-value">{{ product.name }}</div>
+            </div>
+            <div class="info-row">
+                <div class="info-label">الفئة:</div>
+                <div class="info-value">{{ product.category|default:"-" }}</div>
+            </div>
+            <div class="info-row">
+                <div class="info-label">الكمية:</div>
+                <div class="info-value">{{ product.quantity }}</div>
+            </div>
+            <div class="info-row">
+                <div class="info-label">الوصف:</div>
+                <div class="info-value">{{ product.description|default:"-" }}</div>
+            </div>
+            <div class="info-row">
+                <div class="info-label">تاريخ الإضافة:</div>
+                <div class="info-value">{{ product.created_at|date:"Y-m-d H:i" }}</div>
+            </div>
+        </div>
+
+        <!-- الموقع -->
+        <div class="product-info">
+            <h2 style="margin-bottom: 20px;">📍 الموقع</h2>
+            {% if product.location %}
+                <div class="location-box">
+                    <div style="font-size: 1.5rem; font-weight: bold; color: #065f46;">
+                        {{ product.location.full_location }}
+                    </div>
+                    {% if product.location.notes %}
+                        <div style="font-size: 0.9rem; margin-top: 5px; color: #047857;">
+                            {{ product.location.notes|truncatewords:5 }}
+                        </div>
+                    {% endif %}
+                </div>
+            {% else %}
+                <p style="text-align: center; padding: 40px; color: var(--text-secondary);">
+                    لا يوجد موقع مسجل لهذا المنتج
+                </p>
+            {% endif %}
+        </div>
+
+        <!-- الإجراءات -->
+        <div style="background: white; padding: 30px; border-radius: 12px; box-shadow: var(--shadow-lg);">
+            <h3 style="margin-bottom: 20px;">الإجراءات</h3>
+            <div style="display: flex; gap: 10px; justify-content: center;">
+                <a href="/products/{{ product.id }}/edit/" class="btn btn-primary">
+                    ✏️ تعديل
+                </a>
+                <a href="/products/{{ product.id }}/assign/" class="btn btn-success">
+                    📍 ربط بموقع
+                </a>
+                <a href="/products/" class="btn btn-secondary">
+                    ← العودة للقائمة
+                </a>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+

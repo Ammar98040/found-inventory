@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>تعديل منتج - {{ product.product_number }}</title>
+    {% load static %}
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+</head>
+<body>
+    <div class="container">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">
+            <h1>✏️ تعديل منتج</h1>
+            <a href="/products/{{ product.id }}/" class="btn btn-secondary">← العودة للتفاصيل</a>
+        </div>
+
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert alert-{{ message.tags }}" style="margin-bottom: 20px;">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        {% endif %}
+
+        <div style="background: white; padding: 30px; border-radius: 12px; box-shadow: var(--shadow-lg);">
+            <form method="POST">
+                {% csrf_token %}
+                
+                <div class="form-group">
+                    <label for="product_number">رقم المنتج *</label>
+                    <input type="text" id="product_number" name="product_number" required 
+                           value="{{ product.product_number }}">
+                    <small>رقم فريد للمنتج</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="name">اسم المنتج *</label>
+                    <input type="text" id="name" name="name" required 
+                           value="{{ product.name }}">
+                </div>
+
+                <div class="form-group">
+                    <label for="category">الفئة</label>
+                    <input type="text" id="category" name="category" 
+                           value="{{ product.category }}">
+                </div>
+
+                <div class="form-group">
+                    <label for="description">الوصف</label>
+                    <textarea id="description" name="description" rows="4">{{ product.description }}</textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="quantity">الكمية</label>
+                    <input type="number" id="quantity" name="quantity" value="{{ product.quantity }}" min="0">
+                </div>
+
+                <div style="display: flex; gap: 10px; margin-top: 30px;">
+                    <button type="submit" class="btn btn-primary">
+                        ✓ حفظ التغييرات
+                    </button>
+                    <a href="/products/" class="btn btn-secondary">
+                        إلغاء
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <style>
+        .form-group {
+            margin-bottom: 20px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+        .form-group input,
+        .form-group textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            font-size: 1rem;
+            font-family: inherit;
+        }
+        .form-group input:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: var(--primary-color);
+        }
+        .form-group small {
+            display: block;
+            margin-top: 5px;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+    </style>
+</body>
+</html>
+

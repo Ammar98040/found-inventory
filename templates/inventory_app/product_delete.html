@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>حذف منتج - {{ product.product_number }}</title>
+    {% load static %}
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+</head>
+<body>
+    <div class="container">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">
+            <h1>🗑️ حذف منتج</h1>
+            <a href="/products/" class="btn btn-secondary">← العودة</a>
+        </div>
+
+        <div style="background: white; padding: 30px; border-radius: 12px; box-shadow: var(--shadow-lg); max-width: 600px; margin: 0 auto;">
+            <div style="text-align: center; margin-bottom: 30px;">
+                <div style="font-size: 4rem; margin-bottom: 20px;">⚠️</div>
+                <h2>هل أنت متأكد من حذف هذا المنتج؟</h2>
+                <p style="color: var(--text-secondary); margin-top: 10px;">
+                    هذا الإجراء لا يمكن التراجع عنه
+                </p>
+            </div>
+
+            <div style="background: #f8fafc; padding: 20px; border-radius: 8px; margin-bottom: 30px;">
+                <h3 style="margin-bottom: 15px;">معلومات المنتج:</h3>
+                <div style="display: grid; gap: 10px;">
+                    <div><strong>رقم المنتج:</strong> {{ product.product_number }}</div>
+                    <div><strong>الاسم:</strong> {{ product.name }}</div>
+                    <div><strong>الفئة:</strong> {{ product.category|default:"-" }}</div>
+                    <div><strong>الكمية:</strong> {{ product.quantity }}</div>
+                </div>
+            </div>
+
+            <form method="POST" style="text-align: center;">
+                {% csrf_token %}
+                <button type="submit" class="btn" style="background: var(--error-color); color: white; padding: 12px 40px;">
+                    ✓ نعم، احذف
+                </button>
+                <a href="/products/" class="btn btn-secondary" style="margin-right: 10px;">
+                    إلغاء
+                </a>
+            </form>
+        </div>
+    </div>
+</body>
+</html>
+

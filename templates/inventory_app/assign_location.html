@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ربط منتج بموقع - {{ product.product_number }}</title>
+    {% load static %}
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    <link rel="stylesheet" href="{% static 'css/warehouse_management.css' %}">
+    <style>
+        .warehouse-grid-container {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: var(--shadow-lg);
+            margin-bottom: 20px;
+        }
+        
+        .warehouse-grid {
+            display: grid;
+            gap: 5px;
+            max-height: 600px;
+            overflow: auto;
+            padding: 10px;
+        }
+        
+        .grid-row {
+            display: grid;
+            gap: 5px;
+            grid-template-columns: 50px repeat({{ warehouse.columns_count }}, 1fr);
+        }
+        
+        .grid-cell {
+            aspect-ratio: 1;
+            background: #f8fafc;
+            border: 2px solid #e2e8f0;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .grid-cell:hover {
+            border-color: #3b82f6;
+            background: #eff6ff;
+        }
+        
+        .grid-cell-header {
+            background: #667eea;
+            color: white;
+            border-color: #5a67d8;
+            font-weight: bold;
+        }
+        
+        .grid-cell.selected {
+            background: #10b981;
+            color: white;
+            border-color: #059669;
+        }
+        
+        .grid-cell.current-product {
+            background: #dcfce7;
+            border-color: #10b981;
+        }
+        
+        .location-checkbox {
+            display: none;
+        }
+        
+        .warehouse-info-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        .warehouse-info-header h3 {
+            margin: 0 0 10px;
+        }
+        .product-info {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            border-radius: 12px;
+            color: white;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">
+            <h1>📍 ربط منتج بموقع</h1>
+            <a href="/products/{{ product.id }}/" class="btn btn-secondary">← العودة</a>
+        </div>
+
+        <div class="product-info">
+            <h2 style="margin: 0;">{{ product.product_number }}</h2>
+            <p style="margin: 5px 0 0; opacity: 0.9;">{{ product.name }}</p>
+        </div>
+
+        <div class="warehouse-info-header">
+            <h3>📊 معلومات الشبكة</h3>
+            <p style="margin: 0; opacity: 0.9;">
+                <strong>{{ warehouse.rows_count }}</strong> صف × <strong>{{ warehouse.columns_count }}</strong> عمود = 
+                <strong>{{ all_locations|length }}</strong> موقع
+            </p>
+        </div>
+
+        <div style="background: white; padding: 30px; border-radius: 12px; box-shadow: var(--shadow-lg);">
+            <h3 style="margin-bottom: 20px;">اختر الموقع:</h3>
+            <p style="color: var(--text-secondary); margin-bottom: 20px;">
+                يمكنك اختيار موقع واحد فقط للمنتج. المواقع <span style="color: #10b981; font-weight: bold;">الخضراء</span> فارغة، والمواقع <span style="color: #f59e0b; font-weight: bold;">الصفراء</span> شاغرة.
+            </p>
+            
+            <form method="POST" id="location-form">
+                {% csrf_token %}
+                
+                <div class="warehouse-grid-container">
+                    <h3 style="margin-bottom: 20px; text-align: center;">📍 اختر المواقع من الشبكة</h3>
+                    
+                    <div class="warehouse-grid-wrapper" style="width: 100%; overflow: auto;">
+                        <div id="warehouse-grid" style="display: inline-block; border: 2px solid #e2e8f0; border-radius: 8px;">
+                            <!-- سيتم إنشاء الشبكة عبر JavaScript -->
+                        </div>
+                    </div>
+                </div>
+                
+                <script>
+                    // إنشاء الشبكة ديناميكياً
+                    const warehouseGrid = document.getElementById('warehouse-grid');
+                    const rows = {{ warehouse.rows_count }};
+                    const columns = {{ warehouse.columns_count }};
+                    const locations = [
+                        {% for location in all_locations %}
+                            {
+                                id: {{ location.id }},
+                                row: {{ location.row }},
+                                column: {{ location.column }},
+                                full_location: '{{ location.full_location }}',
+                                is_current: {% if current_location and location.id == current_location.id %}true{% else %}false{% endif %},
+                                is_occupied: {% if location.id in occupied_locations %}true{% else %}false{% endif %}
+                            },
+                        {% endfor %}
+                    ];
+                    
+                    // إنشاء رأس الأعمدة
+                    const headerRow = document.createElement('div');
+                    headerRow.style.display = 'flex';
+                    const emptyCell = document.createElement('div');
+                    emptyCell.className = 'grid-cell grid-cell-header';
+                    emptyCell.style.width = '50px';
+                    emptyCell.style.height = '50px';
+                    headerRow.appendChild(emptyCell);
+                    
+                    for (let col = 1; col <= columns; col++) {
+                        const headerCell = document.createElement('div');
+                        headerCell.className = 'grid-cell grid-cell-header';
+                        headerCell.style.width = '50px';
+                        headerCell.style.height = '50px';
+                        headerCell.textContent = col;
+                        headerRow.appendChild(headerCell);
+                    }
+                    warehouseGrid.appendChild(headerRow);
+                    
+                    // إنشاء الصفوف
+                    for (let row = 1; row <= rows; row++) {
+                        const rowDiv = document.createElement('div');
+                        rowDiv.style.display = 'flex';
+                        
+                        // رأس الصف
+                        const rowHeader = document.createElement('div');
+                        rowHeader.className = 'grid-cell grid-cell-header';
+                        rowHeader.style.width = '50px';
+                        rowHeader.style.height = '50px';
+                        rowHeader.textContent = row;
+                        rowDiv.appendChild(rowHeader);
+                        
+                        // الخلايا
+                        for (let col = 1; col <= columns; col++) {
+                            const location = locations.find(loc => loc.row === row && loc.column === col);
+                            
+                            if (location) {
+                                const cell = document.createElement('label');
+                                const isRadio = document.createElement('input');
+                                isRadio.type = 'radio';
+                                isRadio.name = 'location';
+                                isRadio.value = location.id;
+                                isRadio.id = 'loc-' + location.id;
+                                
+                                cell.setAttribute('for', 'loc-' + location.id);
+                                cell.className = 'grid-cell';
+                                cell.style.width = '50px';
+                                cell.style.height = '50px';
+                                cell.style.cursor = 'pointer';
+                                // عرض رقم الموقع في الأسطر الأولى
+                                cell.innerHTML = '<div style="font-size: 0.65rem; font-weight: bold;">' + location.full_location + '</div>';
+                                
+                                // تلوين الخلايا حسب الحالة
+                                if (location.is_current) {
+                                    cell.style.background = '#3b82f6';
+                                    cell.style.color = 'white';
+                                    cell.style.borderColor = '#2563eb';
+                                    isRadio.checked = true;
+                                } else if (location.is_occupied) {
+                                    cell.style.background = '#fef3c7';
+                                    cell.style.borderColor = '#f59e0b';
+                                    cell.title = 'موقع مشغول';
+                                    cell.style.cursor = 'not-allowed';
+                                    isRadio.disabled = true;
+                                } else {
+                                    cell.style.background = '#dcfce7';
+                                    cell.style.borderColor = '#10b981';
+                                    cell.title = 'موقع فارغ';
+                                }
+                                
+                                isRadio.className = 'location-checkbox';
+                                isRadio.style.display = 'none';
+                                
+                                cell.onclick = function() {
+                                    if (!location.is_occupied) {
+                                        isRadio.checked = !isRadio.checked;
+                                        if (isRadio.checked) {
+                                            cell.style.background = '#3b82f6';
+                                            cell.style.color = 'white';
+                                            cell.style.borderColor = '#2563eb';
+                                        } else {
+                                            cell.style.background = '#dcfce7';
+                                            cell.style.color = 'inherit';
+                                            cell.style.borderColor = '#10b981';
+                                        }
+                                    }
+                                };
+                                
+                                document.getElementById('location-form').appendChild(isRadio);
+                                rowDiv.appendChild(cell);
+                            } else {
+                                const emptyCell = document.createElement('div');
+                                emptyCell.className = 'grid-cell';
+                                emptyCell.style.width = '50px';
+                                emptyCell.style.height = '50px';
+                                emptyCell.textContent = '-';
+                                rowDiv.appendChild(emptyCell);
+                            }
+                        }
+                        
+                        warehouseGrid.appendChild(rowDiv);
+                    }
+                </script>
+
+                <div style="display: flex; gap: 10px; margin-top: 20px;">
+                    <button type="submit" class="btn btn-primary">
+                        ✓ حفظ الربط
+                    </button>
+                    <a href="/products/{{ product.id }}/" class="btn btn-secondary">
+                        إلغاء
+                    </a>
+                </div>
+            </form>
+        </div>
+
+    </div>
+</body>
+</html>
+

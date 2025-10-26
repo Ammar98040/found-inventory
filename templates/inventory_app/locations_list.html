@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>قائمة الأماكن</title>
+    {% load static %}
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    <link rel="stylesheet" href="{% static 'css/warehouse_management.css' %}">
+    <style>
+        .warehouse-grid-container {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: var(--shadow-lg);
+            margin-bottom: 20px;
+        }
+        
+        .warehouse-info-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        .grid-cell {
+            position: relative;
+        }
+        
+        .location-badge {
+            position: absolute;
+            bottom: 2px;
+            right: 2px;
+            background: #10b981;
+            color: white;
+            font-size: 0.6rem;
+            padding: 2px 4px;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">
+            <h1>📍 الأماكن</h1>
+            <div>
+                <a href="/dashboard/" class="btn btn-secondary">📊 لوحة التحكم</a>
+                <a href="/manage/" class="btn btn-secondary">⚙️ إدارة المستودع</a>
+                <a href="/products/" class="btn btn-primary">📦 المنتجات</a>
+            </div>
+        </div>
+
+        <div class="warehouse-info-header">
+            <h3>🏢 {{ warehouse.name }}</h3>
+            <p style="margin: 0; opacity: 0.9;">
+                <strong>{{ warehouse.rows_count }}</strong> صف × <strong>{{ warehouse.columns_count }}</strong> عمود = 
+                <strong>{{ locations|length }}</strong> موقع
+            </p>
+        </div>
+
+        <div class="warehouse-grid-container">
+            <h3 style="margin-bottom: 20px; text-align: center;">📍 شبكة الأماكن في المستودع</h3>
+            
+            <div class="warehouse-grid-wrapper" style="width: 100%; overflow: auto;">
+                <div id="warehouse-grid" style="display: inline-block; border: 2px solid #e2e8f0; border-radius: 8px;">
+                    <!-- سيتم إنشاء الشبكة عبر JavaScript -->
+                </div>
+            </div>
+        </div>
+        
+        <script>
+            // إنشاء الشبكة ديناميكياً
+            const warehouseGrid = document.getElementById('warehouse-grid');
+            const rows = {{ warehouse.rows_count }};
+            const columns = {{ warehouse.columns_count }};
+            const locations = [
+                {% for location in locations %}
+                    {
+                        id: {{ location.id }},
+                        row: {{ location.row }},
+                        column: {{ location.column }},
+                        full_location: '{{ location.full_location }}',
+                        has_products: {% if location.products.exists %}true{% else %}false{% endif %},
+                        products_count: {{ location.products.count }},
+                        products: [
+                            {% for product in location.products.all %}
+                                '{{ product.product_number }}',
+                            {% endfor %}
+                        ]
+                    },
+                {% endfor %}
+            ];
+            
+            // إنشاء رأس الأعمدة
+            const headerRow = document.createElement('div');
+            headerRow.style.display = 'flex';
+            const emptyCell = document.createElement('div');
+            emptyCell.className = 'grid-cell grid-cell-header';
+            emptyCell.style.width = '80px';
+            emptyCell.style.height = '50px';
+            headerRow.appendChild(emptyCell);
+            
+            for (let col = 1; col <= columns; col++) {
+                const headerCell = document.createElement('div');
+                headerCell.className = 'grid-cell grid-cell-header';
+                headerCell.style.width = '80px';
+                headerCell.style.height = '50px';
+                headerCell.textContent = col;
+                headerRow.appendChild(headerCell);
+            }
+            warehouseGrid.appendChild(headerRow);
+            
+            // إنشاء الصفوف
+            for (let row = 1; row <= rows; row++) {
+                const rowDiv = document.createElement('div');
+                rowDiv.style.display = 'flex';
+                
+                // رأس الصف
+                const rowHeader = document.createElement('div');
+                rowHeader.className = 'grid-cell grid-cell-header';
+                rowHeader.style.width = '80px';
+                rowHeader.style.height = '80px';
+                rowHeader.textContent = row;
+                rowDiv.appendChild(rowHeader);
+                
+                // الخلايا
+                for (let col = 1; col <= columns; col++) {
+                    const location = locations.find(loc => loc.row === row && loc.column === col);
+                    
+                    const cell = document.createElement('div');
+                    cell.className = 'grid-cell';
+                    cell.style.width = '80px';
+                    cell.style.height = '80px';
+                    
+                    if (location) {
+                        if (location.has_products) {
+                            cell.classList.add('has-products');
+                            // تصميم محسّن وواضح جداً للموقع مع منتج
+                            cell.innerHTML = '<div style="padding: 5px; text-align: center; line-height: 1.3;">' + 
+                                            '<div style="background: #ffffff; color: #059669; padding: 3px 5px; border-radius: 3px; margin-bottom: 4px; font-size: 0.65rem; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">' + location.full_location + '</div>' +
+                                            '<div style="background: #f0fdf4; color: #065f46; padding: 3px 5px; border-radius: 3px; font-size: 0.6rem; font-weight: bold; border: 1px solid #10b981;">' + location.products[0] + '</div>' +
+                                            '</div>';
+                        } else {
+                            // تصميم واضح للموقع الفارغ
+                            cell.innerHTML = '<div style="font-size: 0.7rem; font-weight: bold; color: #94a3b8; text-align: center; padding-top: 8px;">' + location.full_location + '</div>';
+                        }
+                        
+                        // إضافة tooltip
+                        cell.title = location.full_location + 
+                                    (location.has_products ? '\nمنتج: ' + location.products.join(', ') : '\nموقع فارغ');
+                    } else {
+                        cell.textContent = '-';
+                    }
+                    
+                    rowDiv.appendChild(cell);
+                }
+                
+                warehouseGrid.appendChild(rowDiv);
+            }
+        </script>
+    </div>
+</body>
+</html>
+

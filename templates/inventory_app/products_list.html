@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>قائمة المنتجات</title>
+    {% load static %}
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    <style>
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+        .btn-action {
+            padding: 8px 16px;
+            margin: 0 5px;
+            text-decoration: none;
+            border-radius: 6px;
+            display: inline-block;
+        }
+        .search-box {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .search-box input {
+            flex: 1;
+            padding: 10px;
+            border: 2px solid var(--border-color);
+            border-radius: 6px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        th, td {
+            padding: 15px;
+            text-align: right;
+            border-bottom: 1px solid var(--border-color);
+        }
+        th {
+            background: var(--primary-color);
+            color: white;
+        }
+        tr:hover {
+            background: #f8fafc;
+        }
+        
+        /* Responsive table */
+        @media (max-width: 768px) {
+            .page-header {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 10px;
+            }
+            
+            .page-header h1 {
+                margin-bottom: 0;
+            }
+            
+            .page-header > div {
+                display: flex;
+                flex-direction: column;
+                gap: 8px;
+            }
+            
+            .search-box {
+                flex-direction: column;
+            }
+            
+            table {
+                font-size: 0.85rem;
+            }
+            
+            th, td {
+                padding: 8px;
+                font-size: 0.85rem;
+            }
+            
+            /* Hide less important columns on mobile */
+            th:nth-child(3),
+            td:nth-child(3) {
+                display: none;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .page-header {
+                gap: 8px;
+            }
+            
+            .btn {
+                font-size: 0.8rem;
+                padding: 8px 12px;
+            }
+            
+            table {
+                font-size: 0.75rem;
+            }
+            
+            th, td {
+                padding: 5px;
+                font-size: 0.75rem;
+            }
+            
+            /* Make tables scroll on very small screens */
+            .table-wrapper {
+                overflow-x: auto;
+            }
+            
+            /* Hide more columns on very small screens */
+            th:nth-child(2),
+            td:nth-child(2) {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="page-header">
+            <h1>📦 قائمة المنتجات</h1>
+            <a href="/" class="btn btn-secondary">🔍 البحث</a>
+            <a href="/dashboard/" class="btn btn-secondary">📊 لوحة التحكم</a>
+            <a href="/products/add/" class="btn btn-primary">➕ إضافة منتج</a>
+        </div>
+
+        <!-- البحث -->
+        <div class="search-box">
+            <form method="GET" style="display: flex; gap: 10px; width: 100%;">
+                <input type="text" name="search" placeholder="ابحث عن منتج..." value="{{ search }}" style="flex: 1;">
+                <button type="submit" class="btn btn-primary">🔍 بحث</button>
+                {% if search %}<a href="/products/" class="btn btn-secondary">🗑️ مسح</a>{% endif %}
+            </form>
+        </div>
+
+        <!-- الرسائل -->
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert alert-{{ message.tags }}">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        {% endif %}
+
+        <!-- قائمة المنتجات -->
+        <div style="background: white; padding: 20px; border-radius: 12px; box-shadow: var(--shadow-lg);">
+            {% if products %}
+                <div class="table-wrapper">
+                    <table>
+                    <thead>
+                        <tr>
+                            <th>رقم المنتج</th>
+                            <th>الاسم</th>
+                            <th>الفئة</th>
+                            <th>الكمية</th>
+                            <th>الأماكن</th>
+                            <th>الإجراءات</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for product in products %}
+                            <tr>
+                                <td><strong>{{ product.product_number }}</strong></td>
+                                <td>{{ product.name }}</td>
+                                <td>{{ product.category|default:"-" }}</td>
+                                <td>{{ product.quantity }}</td>
+                                <td>
+                                    {% if product.location %}
+                                        <span style="background: #dcfce7; color: #065f46; padding: 3px 8px; border-radius: 4px; margin: 2px; display: inline-block; font-size: 0.85rem;">
+                                            {{ product.location.full_location }}
+                                        </span>
+                                    {% else %}
+                                        <span style="color: var(--text-secondary);">بدون موقع</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                <a href="/products/{{ product.id }}/" class="btn-action" style="background: var(--info-color); color: white;">👁️ عرض</a>
+                <a href="/products/{{ product.id }}/edit/" class="btn-action" style="background: var(--primary-color); color: white;">✏️ تعديل</a>
+                <a href="/products/{{ product.id }}/assign/" class="btn-action" style="background: var(--success-color); color: white;">📍 ربط</a>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                    </table>
+                </div>
+                
+                <p style="text-align: center; margin-top: 20px; color: var(--text-secondary);">
+                    إجمالي المنتجات: {{ products.count }}
+                </p>
+            {% else %}
+                <p style="text-align: center; padding: 40px; color: var(--text-secondary);">
+                    {% if search %}
+                        لم يتم العثور على منتجات للبحث "{{ search }}"
+                    {% else %}
+                        لا توجد منتجات حتى الآن. <a href="/admin/inventory_app/product/add/">أضف منتجاً جديداً</a>
+                    {% endif %}
+                </p>
+            {% endif %}
+        </div>
+    </div>
+</body>
+</html>
+
