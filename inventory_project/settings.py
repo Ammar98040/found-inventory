@@ -69,43 +69,22 @@ WSGI_APPLICATION = 'inventory_project.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 
-# استخدام DATABASE_URL من Railway أولاً، ثم fallback إلى Redis/Render، ثم SQLite
+# استخدام DATABASE_URL من Fly.io/Railway/Render أولاً، ثم fallback إلى SQLite
 DATABASE_URL = config('DATABASE_URL', default=None)
 
 if DATABASE_URL:
-    # Railway أو Render يستخدم DATABASE_URL
+    # Fly.io/Railway/Render يستخدم DATABASE_URL
     DATABASES = {
         'default': dj_database_url.parse(DATABASE_URL, conn_max_age=600)
     }
 else:
-    # استخدام إعدادات PostgreSQL التقليدية (Render)
+    # Fallback إلى SQLite للتطوير المحلي
     DATABASES = {
         'default': {
-            'ENGINE': 'django.db.backends.postgresql',
-            'NAME': config('DB_NAME', default='inventory_db'),
-            'USER': config('DB_USER', default='postgres'),
-            'PASSWORD': config('DB_PASSWORD', default=''),
-            'HOST': config('DB_HOST', default='localhost'),
-            'PORT': config('DB_PORT', default='5432'),
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
         }
     }
-    
-    # Fallback إلى SQLite للتطوير المحلي
-    try:
-        if not config('DB_NAME', default=None) and not config('DB_HOST', default=None):
-            DATABASES = {
-                'default': {
-                    'ENGINE': 'django.db.backends.sqlite3',
-                    'NAME': BASE_DIR / 'db.sqlite3',
-                }
-            }
-    except:
-        DATABASES = {
-            'default': {
-                'ENGINE': 'django.db.backends.sqlite3',
-                'NAME': BASE_DIR / 'db.sqlite3',
-            }
-        }
 
 
 # Password validation
