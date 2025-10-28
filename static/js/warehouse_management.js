@@ -54,7 +54,7 @@ function updateGridDisplay() {
     for (let col = 1; col <= currentGrid.columns; col++) {
         const headerCell = document.createElement('div');
         headerCell.className = 'grid-cell grid-cell-header';
-        headerCell.style.width = '80px';
+        headerCell.style.width = '50px';
         headerCell.style.height = '50px';
         headerCell.textContent = col;
         headerRow.appendChild(headerCell);
@@ -72,7 +72,7 @@ function updateGridDisplay() {
         const rowHeader = document.createElement('div');
         rowHeader.className = 'grid-cell grid-cell-header';
         rowHeader.style.width = '50px';
-        rowHeader.style.height = '80px';
+        rowHeader.style.height = '50px';
         rowHeader.textContent = row;
         rowDiv.appendChild(rowHeader);
         
@@ -83,20 +83,20 @@ function updateGridDisplay() {
             const cellData = currentGrid.grid[key] || {};
             
             cell.className = 'grid-cell';
-            cell.style.width = '80px';
-            cell.style.height = '80px';
+            cell.style.width = '50px';
+            cell.style.height = '50px';
             
             if (cellData.has_products) {
                 cell.classList.add('has-products');
-                // تصميم محسّن وواضح جداً للموقع مع منتج
-                cell.innerHTML = '<div style="padding: 5px; text-align: center; line-height: 1.3;">' + 
-                                '<div style="background: #ffffff; color: #059669; padding: 3px 5px; border-radius: 3px; margin-bottom: 4px; font-size: 0.65rem; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">R' + row + 'C' + col + '</div>' +
-                                '<div style="background: #f0fdf4; color: #065f46; padding: 3px 5px; border-radius: 3px; font-size: 0.6rem; font-weight: bold; border: 1px solid #10b981;">' + (cellData.products && cellData.products.length > 0 ? cellData.products[0] : '') + '</div>' +
+                // تصميم محسّن للموقع مع منتج (حجم صغير)
+                cell.innerHTML = '<div style="padding: 2px; text-align: center; line-height: 1.2;">' + 
+                                '<div style="font-size: 0.5rem; font-weight: bold; color: #059669;">R' + row + 'C' + col + '</div>' +
+                                '<div style="font-size: 0.45rem; color: #065f46;">' + (cellData.products && cellData.products.length > 0 ? cellData.products[0].substring(0, 6) : '') + '</div>' +
                                 '</div>';
             } else {
                 // تصميم واضح للموقع الفارغ
                 cell.classList.add('empty');
-                cell.innerHTML = '<div style="font-size: 0.7rem; font-weight: bold; color: #94a3b8; text-align: center; padding-top: 8px;">R' + row + 'C' + col + '</div>';
+                cell.innerHTML = '<div style="font-size: 0.6rem; font-weight: bold; color: #94a3b8; text-align: center;">R' + row + 'C' + col + '</div>';
             }
             
             // معلومات عند التحويم

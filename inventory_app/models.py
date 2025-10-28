@@ -46,6 +46,10 @@ class Location(models.Model):
         verbose_name_plural = 'الأماكن'
         ordering = ['warehouse', 'row', 'column']
         unique_together = ['warehouse', 'row', 'column']
+        indexes = [
+            models.Index(fields=['warehouse', 'row', 'column']),
+            models.Index(fields=['is_active']),
+        ]
     
     def __str__(self):
         return f"R{self.row}-C{self.column}"
@@ -84,6 +88,12 @@ class Product(models.Model):
         verbose_name = 'منتج'
         verbose_name_plural = 'المنتجات'
         ordering = ['product_number']
+        indexes = [
+            models.Index(fields=['product_number']),
+            models.Index(fields=['name']),
+            models.Index(fields=['location']),
+            models.Index(fields=['category']),
+        ]
     
     def __str__(self):
         return f"{self.product_number} - {self.name}"
@@ -118,6 +128,12 @@ class AuditLog(models.Model):
         verbose_name = 'سجل عمليات'
         verbose_name_plural = 'سجلات العمليات'
         ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['-created_at']),
+            models.Index(fields=['action']),
+            models.Index(fields=['product']),
+            models.Index(fields=['product_number']),
+        ]
     
     def __str__(self):
         return f"{self.get_action_display()} - {self.product_number} - {self.created_at.strftime('%Y-%m-%d %H:%M')}"
@@ -140,12 +156,18 @@ class DailyReportArchive(models.Model):
     # بيانات JSON كاملة
     report_data = models.JSONField(verbose_name='بيانات التقرير', default=dict)
     
+    # علامة للحفظ التلقائي
+    is_auto_saved = models.BooleanField(default=False, verbose_name='حفظ تلقائي')
+    
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='تاريخ الإنشاء')
     
     class Meta:
         verbose_name = 'تقرير يومي محفوظ'
         verbose_name_plural = 'التقارير اليومية المحفوظة'
         ordering = ['-report_date']
+        indexes = [
+            models.Index(fields=['-report_date']),
+        ]
     
     def __str__(self):
         return f"تقرير {self.report_date}"

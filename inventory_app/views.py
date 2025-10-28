@@ -25,48 +25,57 @@ def confirm_products(request):
             data = json.loads(request.body)
             products_list = data.get('products', [])
             
+            # Extract product numbers for efficient batch query
+            product_numbers = [item.get('number', '').strip() for item in products_list if item.get('number', '').strip()]
+            
+            # Optimize: Batch query with select_for_update to lock rows
+            products_dict = {
+                p.product_number: p 
+                for p in Product.objects.filter(product_number__in=product_numbers).select_for_update()
+            }
+            
             updated_products = []
             
             for item in products_list:
                 product_number = item.get('number', '').strip()
                 requested_quantity = int(item.get('quantity', 0))
                 
-                try:
-                    product = Product.objects.get(product_number=product_number)
-                    
-                    if product.quantity >= requested_quantity:
-                        old_quantity = product.quantity
-                        product.quantity -= requested_quantity
-                        product.save()
-                        
-                        # تسجيل العملية في السجل
-                        AuditLog.objects.create(
-                            action='quantity_taken',
-                            product=product,
-                            product_number=product_number,
-                            quantity_before=old_quantity,
-                            quantity_after=product.quantity,
-                            quantity_change=-requested_quantity,
-                            notes=f'تم سحب {requested_quantity} من المنتج',
-                            user=request.user.username if request.user.is_authenticated else 'Guest'
-                        )
-                        
-                        updated_products.append({
-                            'product_number': product_number,
-                            'old_quantity': old_quantity,
-                            'new_quantity': product.quantity,
-                            'quantity_taken': requested_quantity
-                        })
-                    else:
-                        return JsonResponse({
-                            'success': False,
-                            'error': f'الكمية غير كافية للمنتج {product_number}'
-                        })
-                        
-                except Product.DoesNotExist:
+                # Fast lookup
+                product = products_dict.get(product_number)
+                
+                if not product:
                     return JsonResponse({
                         'success': False,
                         'error': f'المنتج {product_number} غير موجود'
+                    })
+                
+                if product.quantity >= requested_quantity:
+                    old_quantity = product.quantity
+                    product.quantity -= requested_quantity
+                    product.save()
+                    
+                    # تسجيل العملية في السجل
+                    AuditLog.objects.create(
+                        action='quantity_taken',
+                        product=product,
+                        product_number=product_number,
+                        quantity_before=old_quantity,
+                        quantity_after=product.quantity,
+                        quantity_change=-requested_quantity,
+                        notes=f'تم سحب {requested_quantity} من المنتج',
+                        user=request.user.username if request.user.is_authenticated else 'Guest'
+                    )
+                    
+                    updated_products.append({
+                        'product_number': product_number,
+                        'old_quantity': old_quantity,
+                        'new_quantity': product.quantity,
+                        'quantity_taken': requested_quantity
+                    })
+                else:
+                    return JsonResponse({
+                        'success': False,
+                        'error': f'الكمية غير كافية للمنتج {product_number}'
                     })
             
             return JsonResponse({
@@ -91,6 +100,15 @@ def search_products(request):
         data = json.loads(request.body)
         products_list = data.get('products', [])
         
+        # Extract product numbers for efficient batch query
+        product_numbers = [item.get('product_number', '').strip() for item in products_list if item.get('product_number', '').strip()]
+        
+        # Optimize: Use select_related to avoid N+1 queries and batch query
+        products = Product.objects.filter(product_number__in=product_numbers).select_related('location')
+        
+        # Create a dictionary for fast lookup
+        products_dict = {p.product_number: p for p in products}
+        
         results = []
         
         for item in products_list:
@@ -100,9 +118,10 @@ def search_products(request):
             if not product_number:
                 continue
             
-            try:
-                product = Product.objects.get(product_number=product_number)
-                
+            # Fast lookup from dictionary
+            product = products_dict.get(product_number)
+            
+            if product:
                 locations_data = []
                 if product.location:
                     grid_pos = product.location.get_grid_position()
@@ -129,7 +148,7 @@ def search_products(request):
                     result['requested_quantity'] = requested_quantity
                 
                 results.append(result)
-            except Product.DoesNotExist:
+            else:
                 results.append({
                     'product_number': product_number,
                     'requested_quantity': requested_quantity,
@@ -165,18 +184,20 @@ def get_warehouse_grid(request):
     if not warehouse:
         return JsonResponse({'error': 'لا يوجد مستودع'}, status=404)
     
-    locations = Location.objects.filter(warehouse=warehouse)
+    # Optimize query with prefetch_related
+    locations = Location.objects.filter(warehouse=warehouse).prefetch_related('products')
     grid_data = {}
     
     for location in locations:
         key = f"{location.row},{location.column}"
-        products = location.products.all()
+        # Use prefetched products
+        products = list(location.products.all())
         grid_data[key] = {
             'row': location.row,
             'column': location.column,
             'notes': location.notes,
             'is_active': location.is_active,
-            'has_products': products.exists(),
+            'has_products': len(products) > 0,
             'products': [p.product_number for p in products],
         }
     
@@ -281,6 +302,7 @@ def delete_column(request):
 
 def warehouse_dashboard(request):
     """لوحة تحكم المستودع"""
+    # Use select_related for related data
     warehouse = Warehouse.objects.first()
     products_count = Product.objects.count()
     locations_count = Location.objects.count()
@@ -296,7 +318,8 @@ def warehouse_dashboard(request):
 
 def products_list(request):
     """قائمة جميع المنتجات"""
-    products = Product.objects.all().order_by('product_number')
+    # Optimize query with select_related to avoid N+1 queries
+    products = Product.objects.select_related('location').all().order_by('product_number')
     
     search = request.GET.get('search', '')
     if search:
@@ -306,8 +329,15 @@ def products_list(request):
             name__icontains=search
         )
     
+    # Add pagination for performance
+    from django.core.paginator import Paginator
+    paginator = Paginator(products, 50)  # Show 50 products per page
+    page_number = request.GET.get('page', 1)
+    page_obj = paginator.get_page(page_number)
+    
     return render(request, 'inventory_app/products_list.html', {
-        'products': products,
+        'products': page_obj,
+        'page_obj': page_obj,
         'search': search
     })
 
@@ -436,7 +466,8 @@ def product_delete(request, product_id):
 
 def assign_location_to_product(request, product_id):
     """ربط منتج بموقع واحد فقط"""
-    product = get_object_or_404(Product, id=product_id)
+    # Optimize with select_related
+    product = get_object_or_404(Product.objects.select_related('location'), id=product_id)
     warehouse = Warehouse.objects.first()
     
     if request.method == 'POST':
@@ -445,8 +476,8 @@ def assign_location_to_product(request, product_id):
             new_location = Location.objects.get(id=location_id)
             old_location = product.location
             
-            # التحقق من أن الموقع غير مشغول بمنتج آخر
-            if new_location.products.filter(~db_models.Q(id=product.id)).exists():
+            # التحقق من أن الموقع غير مشغول بمنتج آخر - use exists() for efficiency
+            if new_location.products.exclude(id=product.id).exists():
                 messages.error(request, 'هذا الموقع مشغول بمنتج آخر! اختر موقعاً آخر')
             else:
                 product.location = new_location
@@ -490,10 +521,14 @@ def assign_location_to_product(request, product_id):
         
         return redirect('inventory_app:product_detail', product_id=product.id)
     
-    all_locations = Location.objects.filter(warehouse=warehouse).order_by('row', 'column')
+    # Optimize query
+    all_locations = Location.objects.filter(warehouse=warehouse).select_related('warehouse').order_by('row', 'column')
     
-    # تحديد الأماكن الشاغرة والفارغة
-    occupied_locations = {loc.id for loc in Location.objects.filter(products__isnull=False)}
+    # تحديد الأماكن الشاغرة والفارغة - optimize with values_list
+    occupied_locations = set(
+        Location.objects.filter(products__isnull=False)
+        .values_list('id', flat=True)
+    )
     
     return render(request, 'inventory_app/assign_location.html', {
         'product': product,
@@ -523,14 +558,22 @@ def warehouse_detail(request, warehouse_id):
 def locations_list(request):
     """قائمة جميع الأماكن"""
     warehouse = Warehouse.objects.first()
-    locations = Location.objects.filter(warehouse=warehouse).order_by('row', 'column')
+    # Optimize with prefetch_related and select_related
+    locations = Location.objects.filter(warehouse=warehouse).select_related('warehouse').prefetch_related('products').order_by('row', 'column')
     
     search = request.GET.get('search', '')
     if search:
         locations = locations.filter(notes__icontains=search)
     
+    # Add pagination
+    from django.core.paginator import Paginator
+    paginator = Paginator(locations, 100)  # Show 100 locations per page
+    page_number = request.GET.get('page', 1)
+    page_obj = paginator.get_page(page_number)
+    
     return render(request, 'inventory_app/locations_list.html', {
-        'locations': locations,
+        'locations': page_obj,
+        'page_obj': page_obj,
         'warehouse': warehouse,
         'search': search
     })
@@ -555,7 +598,9 @@ def get_stats(request):
         if warehouse:
             total_capacity = warehouse.rows_count * warehouse.columns_count
             # المواقع المشغولة (التي تحتوي على منتجات)
-            occupied_locations = Location.objects.filter(products__isnull=False).distinct().count()
+            # استخدام values_list للحصول على الـ IDs المميزة للأماكن المشغولة
+            occupied_locations_ids = Product.objects.filter(location__isnull=False).values_list('location_id', flat=True).distinct()
+            occupied_locations = len(occupied_locations_ids) if occupied_locations_ids else 0
             empty_locations = total_capacity - occupied_locations
         else:
             total_capacity = 0
@@ -652,24 +697,41 @@ def quick_search_locations(request):
 
 def audit_logs(request):
     """صفحة عرض سجلات العمليات"""
-    logs = AuditLog.objects.all()
-    
+    from django.core.paginator import Paginator
+    from django.db.models import Count
+
+    # الاستعلام الأساسي + تحسينات
+    base_qs = AuditLog.objects.select_related('product').all()
+
     search = request.GET.get('search', '')
     action_filter = request.GET.get('action', '')
-    
+
     if search:
-        logs = logs.filter(product_number__icontains=search)
-    
+        base_qs = base_qs.filter(product_number__icontains=search)
+
     if action_filter:
-        logs = logs.filter(action=action_filter)
-    
-    # Limit to 100 after filtering
-    logs = list(logs[:200])
-    
+        base_qs = base_qs.filter(action=action_filter)
+
+    # إحصائيات كاملة قبل التقسيم لصفحات
+    total_count = base_qs.count()
+    counts_qs = base_qs.values('action').annotate(count=Count('id'))
+    action_counts = {row['action']: row['count'] for row in counts_qs}
+
+    # ترتيب لضمان تجميع منطقي داخل الصفحة (ثم الأحدث داخل كل نوع)
+    ordered_qs = base_qs.order_by('action', '-created_at')
+
+    # التقسيم لصفحات
+    paginator = Paginator(ordered_qs, 100)
+    page_number = request.GET.get('page', 1)
+    page_obj = paginator.get_page(page_number)
+
     return render(request, 'inventory_app/audit_logs.html', {
-        'logs': logs,
+        'logs': page_obj,
+        'page_obj': page_obj,
         'search': search,
-        'action_filter': action_filter
+        'action_filter': action_filter,
+        'total_count': total_count,
+        'action_counts': action_counts,
     })
 
 
@@ -757,6 +819,9 @@ def daily_reports(request):
     # تحديد نطاق التاريخ (اليوم)
     today = datetime.now().date()
     
+    # فحص وحفظ تلقائي للتقارير السابقة غير المحفوظة
+    _auto_save_daily_reports()
+    
     # إحصائيات اليوم (استخدام created_at بدلاً من timestamp)
     today_logs = AuditLog.objects.filter(created_at__date=today)
     
@@ -793,6 +858,87 @@ def daily_reports(request):
     }
     
     return render(request, 'inventory_app/daily_reports.html', context)
+
+
+def _auto_save_daily_reports():
+    """حفظ تلقائي للتقارير اليومية السابقة غير المحفوظة"""
+    from datetime import datetime, timedelta
+    
+    try:
+        # التحقق من آخر 7 أيام للحفظ التلقائي
+        today = datetime.now().date()
+        
+        for day_offset in range(7):
+            check_date = today - timedelta(days=day_offset)
+            
+            # تخطي اليوم الحالي
+            if check_date == today:
+                continue
+            
+            # التحقق من عدم وجود تقرير محفوظ لهذا التاريخ
+            existing_report = DailyReportArchive.objects.filter(report_date=check_date).first()
+            if existing_report:
+                continue  # التقرير محفوظ مسبقاً
+            
+            # جلب بيانات هذا التاريخ
+            date_logs = AuditLog.objects.filter(created_at__date=check_date)
+            
+            # إذا كانت هناك عمليات في هذا اليوم ولم يكن محفوظ، احفظه
+            if date_logs.exists():
+                products_added = date_logs.filter(action='added').count()
+                products_updated = date_logs.filter(action='updated').count()
+                products_deleted = date_logs.filter(action='deleted').count()
+                quantities_taken = date_logs.filter(action='quantity_taken').count()
+                locations_assigned = date_logs.filter(action='location_assigned').count()
+                
+                new_products = Product.objects.filter(created_at__date=check_date).order_by('-created_at')[:10]
+                recent_logs = date_logs.order_by('-created_at')[:20]
+                
+                quantity_changes = date_logs.filter(action__in=['added', 'quantity_taken']).aggregate(
+                    total_added=db_models.Sum('quantity_change', filter=db_models.Q(quantity_change__gt=0)),
+                    total_removed=db_models.Sum('quantity_change', filter=db_models.Q(quantity_change__lt=0))
+                )
+                
+                # إعداد البيانات للـ JSON
+                report_data = {
+                    'new_products': [
+                        {
+                            'product_number': p.product_number,
+                            'name': p.name,
+                            'category': p.category,
+                            'quantity': p.quantity,
+                            'location': p.location.full_location if p.location else None
+                        } for p in new_products
+                    ],
+                    'recent_logs': [
+                        {
+                            'action': log.action,
+                            'product_number': log.product_number,
+                            'notes': log.notes,
+                            'created_at': log.created_at.strftime('%Y-%m-%d %H:%M')
+                        } for log in recent_logs
+                    ]
+                }
+                
+                # إنشاء التقرير المحفوظ
+                hijri_date = convert_to_hijri(check_date)
+                
+                DailyReportArchive.objects.create(
+                    report_date=check_date,
+                    hijri_date=hijri_date,
+                    products_added=products_added,
+                    products_updated=products_updated,
+                    products_deleted=products_deleted,
+                    quantities_taken=quantities_taken,
+                    locations_assigned=locations_assigned,
+                    total_added=quantity_changes['total_added'] or 0,
+                    total_removed=abs(quantity_changes['total_removed'] or 0),
+                    report_data=report_data,
+                    is_auto_saved=True  # علامة لحفظ تلقائي
+                )
+    except Exception as e:
+        # في حالة حدوث خطأ، لا توقف العملية
+        pass
 
 
 def convert_to_hijri(gregorian_date):
@@ -946,6 +1092,42 @@ def backup_restore_page(request):
     return render(request, 'inventory_app/backup_restore.html', {
         'stats': stats
     })
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def update_location_notes(request):
+    """تحديث ملاحظات موقع"""
+    try:
+        data = json.loads(request.body)
+        location_id = data.get('location_id')
+        notes = data.get('notes', '')
+        
+        if not location_id:
+            return JsonResponse({
+                'success': False,
+                'error': 'معرف الموقع مطلوب'
+            })
+        
+        location = Location.objects.get(id=location_id)
+        location.notes = notes
+        location.save()
+        
+        return JsonResponse({
+            'success': True,
+            'message': 'تم حفظ الملاحظات بنجاح'
+        })
+        
+    except Location.DoesNotExist:
+        return JsonResponse({
+            'success': False,
+            'error': 'الموقع غير موجود'
+        })
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        })
 
 
 @csrf_exempt

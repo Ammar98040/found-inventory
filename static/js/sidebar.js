@@ -6,13 +6,31 @@ function toggleSidebar() {
     sidebarOpen = !sidebarOpen;
     const sidebar = document.getElementById('main-sidebar');
     const overlay = document.getElementById('sidebar-overlay');
+    const body = document.body;
     
     if (sidebarOpen) {
         sidebar.classList.add('sidebar-open');
-        if (overlay) overlay.style.display = 'block';
+        if (overlay) {
+            overlay.style.display = 'block';
+            // استخدام setTimeout لإضافة class بعد عرض الـ element
+            setTimeout(() => {
+                overlay.classList.add('show');
+            }, 10);
+        }
+        // منع التمرير في الخلفية على الشاشات الصغيرة
+        if (window.innerWidth <= 768) {
+            body.style.overflow = 'hidden';
+        }
     } else {
         sidebar.classList.remove('sidebar-open');
-        if (overlay) overlay.style.display = 'none';
+        if (overlay) {
+            overlay.classList.remove('show');
+            setTimeout(() => {
+                overlay.style.display = 'none';
+            }, 300);
+        }
+        // إعادة تفعيل التمرير
+        body.style.overflow = '';
     }
 }
 
@@ -20,7 +38,11 @@ function toggleSidebar() {
 document.addEventListener('DOMContentLoaded', function() {
     const overlay = document.getElementById('sidebar-overlay');
     if (overlay) {
-        overlay.addEventListener('click', toggleSidebar);
+        overlay.addEventListener('click', function() {
+            if (sidebarOpen) {
+                toggleSidebar();
+            }
+        });
     }
     
     // إغلاق بـ Escape
@@ -35,15 +57,37 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // تحديث الإحصائيات كل 15 ثانية
     setInterval(updateSidebarStats, 15000);
+    
+    // إغلاق الـ Sidebar عند تغيير حجم النافذة (على الشاشات الصغيرة)
+    let resizeTimer;
+    window.addEventListener('resize', function() {
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(function() {
+            if (window.innerWidth > 768 && sidebarOpen) {
+                toggleSidebar();
+            }
+        }, 250);
+    });
 });
 
 // إغلاق الـ Sidebar عند الضغط على رابط
 document.addEventListener('DOMContentLoaded', function() {
     const sidebarLinks = document.querySelectorAll('.sidebar-link');
     sidebarLinks.forEach(link => {
-        link.addEventListener('click', function() {
-            if (window.innerWidth <= 768) {
-                toggleSidebar(); // إغلاق على الجوال
+        link.addEventListener('click', function(e) {
+            // التأكد من أن الرابط صالح (ليس # أو بدون href)
+            const href = link.getAttribute('href');
+            if (href && href !== '#' && href !== '') {
+                // إغلاق الـ Sidebar على الشاشات الصغيرة بعد تأخير قصير
+                if (window.innerWidth <= 768 && sidebarOpen) {
+                    e.preventDefault();
+                    toggleSidebar();
+                    // الانتقال للصفحة بعد إغلاق الـ sidebar
+                    setTimeout(() => {
+                        window.location.href = href;
+                    }, 300);
+                    return false;
+                }
             }
         });
     });

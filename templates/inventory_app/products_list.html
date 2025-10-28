@@ -9,6 +9,7 @@
     <link rel="stylesheet" href="{% static 'css/sidebar.css' %}">
     <link rel="stylesheet" href="{% static 'css/quick_search.css' %}">
     <link rel="stylesheet" href="{% static 'css/notifications.css' %}">
+    <link rel="stylesheet" href="{% static 'css/product_buttons.css' %}">
     
     <!-- مكتبات PDF -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -20,13 +21,7 @@
             align-items: center;
             margin-bottom: 30px;
         }
-        .btn-action {
-            padding: 8px 16px;
-            margin: 0 5px;
-            text-decoration: none;
-            border-radius: 6px;
-            display: inline-block;
-        }
+        /* استخدام أزرار موحدة من product_buttons.css */
         .search-box {
             display: flex;
             gap: 10px;
@@ -132,15 +127,18 @@
     <div class="container">
         <div class="page-header">
             <h1>📦 قائمة المنتجات</h1>
-            <div>
-                <button onclick="exportProductsToPDF()" class="btn btn-action" style="background: #ef4444; color: white; border: none; cursor: pointer;">
-                    📄 PDF
+            <div class="header-actions">
+                <button onclick="exportProductsToPDF()" class="btn btn--sm btn--pdf">
+                    <span class="icon">📄</span>
+                    <span>PDF</span>
                 </button>
-                <a href="/export/products/excel/" class="btn btn-action" style="background: #10b981; color: white;">
-                    📊 Excel
+                <a href="/export/products/excel/" class="btn btn--sm btn--success btn--excel">
+                    <span class="icon">📊</span>
+                    <span>Excel</span>
                 </a>
-                <a href="/products/add/" class="btn btn-action" style="background: var(--primary-color); color: white;">
-                    ➕ إضافة منتج
+                <a href="/products/add/" class="btn btn--sm btn--primary">
+                    <span class="icon">➕</span>
+                    <span>إضافة منتج</span>
                 </a>
             </div>
         </div>
@@ -195,9 +193,11 @@
                                     {% endif %}
                                 </td>
                                 <td>
-                <a href="/products/{{ product.id }}/" class="btn-action" style="background: var(--info-color); color: white;">👁️ عرض</a>
-                <a href="/products/{{ product.id }}/edit/" class="btn-action" style="background: var(--primary-color); color: white;">✏️ تعديل</a>
-                <a href="/products/{{ product.id }}/assign/" class="btn-action" style="background: var(--success-color); color: white;">📍 ربط</a>
+                                    <div class="row-actions">
+                                        <a href="/products/{{ product.id }}/" class="btn btn--xs btn--info"><span class="icon">👁️</span><span>عرض</span></a>
+                                        <a href="/products/{{ product.id }}/edit/" class="btn btn--xs btn--primary"><span class="icon">✏️</span><span>تعديل</span></a>
+                                        <a href="/products/{{ product.id }}/assign/" class="btn btn--xs btn--success"><span class="icon">📍</span><span>ربط</span></a>
+                                    </div>
                                 </td>
                             </tr>
                         {% endfor %}

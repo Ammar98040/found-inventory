@@ -1,0 +1,80 @@
+/* Buttons styling for products list - compact, consistent, high quality */
+
+:root {
+  --btn-radius: 8px;
+  --btn-padding-y: 6px;
+  --btn-padding-x: 10px;
+  --btn-font-size: 0.85rem;
+  --btn-gap: 6px;
+}
+
+/* Generic button base */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: var(--btn-padding-y) var(--btn-padding-x);
+  font-size: var(--btn-font-size);
+  font-weight: 600;
+  border-radius: var(--btn-radius);
+  text-decoration: none;
+  border: 0;
+  cursor: pointer;
+  line-height: 1.2;
+  transition: transform 0.12s ease, box-shadow 0.12s ease, opacity 0.12s ease;
+  white-space: nowrap;
+}
+
+.btn:active { transform: translateY(1px); }
+.btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+/* Sizes */
+.btn--sm { --btn-padding-y: 5px; --btn-padding-x: 9px; --btn-font-size: 0.8rem; }
+.btn--xs { --btn-padding-y: 4px; --btn-padding-x: 8px; --btn-font-size: 0.75rem; }
+
+/* Variants */
+.btn--primary { background: var(--primary-color); color: #fff; box-shadow: 0 1px 2px rgba(0,0,0,0.08); }
+.btn--primary:hover { box-shadow: 0 2px 6px rgba(102,126,234,0.35); }
+
+.btn--success { background: var(--success-color); color: #fff; box-shadow: 0 1px 2px rgba(0,0,0,0.08); }
+.btn--success:hover { box-shadow: 0 2px 6px rgba(16,185,129,0.35); }
+
+.btn--danger { background: #ef4444; color: #fff; box-shadow: 0 1px 2px rgba(0,0,0,0.08); }
+.btn--danger:hover { box-shadow: 0 2px 6px rgba(239,68,68,0.35); }
+
+.btn--info { background: var(--info-color); color: #fff; box-shadow: 0 1px 2px rgba(0,0,0,0.08); }
+.btn--info:hover { box-shadow: 0 2px 6px rgba(6,182,212,0.35); }
+
+.btn--neutral { background: #e2e8f0; color: #0f172a; }
+.btn--neutral:hover { box-shadow: 0 2px 6px rgba(148,163,184,0.35); }
+
+/* Specific semantic variants */
+.btn--pdf { background: #ef4444; color: #fff; }
+.btn--excel { background: #10b981; color: #fff; }
+
+/* Icon alignment */
+.btn .icon { font-size: 1rem; line-height: 1; display: inline-flex; align-items: center; }
+
+/* Header actions layout */
+.header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* Row actions */
+.row-actions { display: inline-flex; gap: 6px; flex-wrap: wrap; }
+
+/* Responsive tweaks */
+@media (max-width: 768px) {
+  :root { --btn-font-size: 0.8rem; }
+  .btn { gap: 5px; }
+  .header-actions { gap: 6px; }
+}
+
+@media (max-width: 480px) {
+  :root { --btn-font-size: 0.75rem; }
+  .btn { border-radius: 7px; }
+  .row-actions { gap: 5px; }
+}

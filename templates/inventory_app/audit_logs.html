@@ -7,6 +7,7 @@
     {% load static %}
     <link rel="stylesheet" href="{% static 'css/style.css' %}">
     <link rel="stylesheet" href="{% static 'css/sidebar.css' %}">
+    <link rel="stylesheet" href="{% static 'css/product_buttons.css' %}">
     <style>
         .operation-section {
             background: white;
@@ -54,16 +55,21 @@
 </head>
 <body>
     <div class="container">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; flex-wrap: wrap; gap: 10px;">
             <h1>📋 سجلات العمليات</h1>
+            {% if not action_filter %}
+            <span style="background: #eef2ff; color: #3730a3; padding: 8px 14px; border-radius: 999px; font-weight: 600;">
+                إجمالي العمليات: {{ total_count|default:"0" }}
+            </span>
+            {% endif %}
         </div>
 
         <!-- البحث -->
-        <div style="background: white; padding: 20px; border-radius: 12px; box-shadow: var(--shadow-lg); margin-bottom: 20px;">
-            <form method="GET" style="display: flex; gap: 10px;">
-                <input type="text" name="search" placeholder="ابحث برقم المنتج..." 
-                       value="{{ search }}" style="flex: 1; padding: 10px; border: 2px solid var(--border-color); border-radius: 8px;">
-                <select name="action" style="padding: 10px; border: 2px solid var(--border-color); border-radius: 8px;">
+        <div style="background: white; padding: 25px; border-radius: 12px; box-shadow: var(--shadow-lg); margin-bottom: 20px;">
+            <form method="GET" style="display: flex; gap: 12px; flex-wrap: wrap; align-items: center;">
+                <input type="text" name="search" placeholder="🔍 ابحث برقم المنتج..." 
+                       value="{{ search }}" style="flex: 1; min-width: 200px; padding: 12px; border: 2px solid #e2e8f0; border-radius: 8px; font-size: 0.95rem; transition: all 0.2s;">
+                <select name="action" style="padding: 12px; border: 2px solid #e2e8f0; border-radius: 8px; font-size: 0.95rem; background: white; cursor: pointer;">
                     <option value="">الكل</option>
                     <option value="added">إضافة منتج</option>
                     <option value="updated">تعديل منتج</option>
@@ -72,135 +78,137 @@
                     <option value="quantity_added">إضافة كمية</option>
                     <option value="location_assigned">ربط بالمواقع</option>
                 </select>
-                <button type="submit" class="btn btn-primary">🔍 بحث</button>
+                <button type="submit" class="btn btn--sm btn--primary">
+                    <span class="icon">🔍</span>
+                    <span>بحث</span>
+                </button>
             </form>
         </div>
 
         <!-- إضافة منتجات -->
         {% regroup logs by action as grouped_logs %}
-        
-        {% for log in logs %}
-            {% if log.action == 'added' %}
-                {% if forloop.first %}
-                    <div class="operation-section">
-                        <div class="operation-header added">
-                            <h2>➕ إضافة منتجات</h2>
-                            <span style="background: rgba(255,255,255,0.3); padding: 5px 15px; border-radius: 20px; font-weight: bold;">{{ logs|length }}</span>
-                        </div>
-                {% endif %}
-                <div class="log-entry added-entry">
-                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
-                        <div><strong>📦 رقم المنتج:</strong> <span style="color: var(--primary-color); font-weight: bold;">{{ log.product_number }}</span></div>
-                        <div><strong>📊 الكمية:</strong> <span style="color: #10b981; font-weight: bold;">{{ log.quantity_after }}</span></div>
-                        <div><strong>👤 المستخدم:</strong> {{ log.user }}</div>
-                        <div><strong>📅 التاريخ:</strong> <span style="color: var(--text-secondary);">{{ log.created_at|date:"Y-m-d H:i" }}</span></div>
+        {% for group in grouped_logs %}
+            {% if group.grouper == 'added' %}
+                <div class="operation-section">
+                    <div class="operation-header added">
+                        <h2>➕ إضافة منتجات</h2>
+                        <span style="background: rgba(255,255,255,0.3); padding: 5px 15px; border-radius: 20px; font-weight: bold;">{% if action_counts.added %}{{ action_counts.added }}{% else %}{{ group.list|length }}{% endif %}</span>
                     </div>
-                    {% if log.notes %}
-                        <div style="margin-top: 12px; padding: 10px; background: rgba(16,185,129,0.1); border-radius: 6px; font-size: 0.9rem; color: #065f46;">
-                            {{ log.notes }}
-                        </div>
-                    {% endif %}
+        {% for log in group.list %}
+            <div class="log-entry added-entry">
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+                    <div><strong>📦 رقم المنتج:</strong> <span style="color: var(--primary-color); font-weight: bold;">{{ log.product_number }}</span></div>
+                    <div><strong>📊 الكمية:</strong> <span style="color: #10b981; font-weight: bold;">{{ log.quantity_after }}</span></div>
+                    <div><strong>👤 المستخدم:</strong> {{ log.user }}</div>
+                    <div><strong>📅 التاريخ:</strong> <span style="color: var(--text-secondary);">{{ log.created_at|date:"Y-m-d H:i" }}</span></div>
                 </div>
-                {% if forloop.last %}</div>{% endif %}
+                {% if log.notes %}
+                    <div style="margin-top: 12px; padding: 10px; background: rgba(16,185,129,0.1); border-radius: 6px; font-size: 0.9rem; color: #065f46;">
+                        {{ log.notes }}
+                    </div>
+                {% endif %}
+            </div>
+        {% endfor %}
+                </div>
             {% endif %}
         {% endfor %}
 
         <!-- تعديل منتجات -->
-        {% for log in logs %}
-            {% if log.action == 'updated' %}
-                {% if forloop.first %}
-                    <div class="operation-section">
-                        <div class="operation-header updated">
-                            <h2>✏️ تعديل منتجات</h2>
-                            <span style="background: rgba(255,255,255,0.3); padding: 5px 15px; border-radius: 20px; font-weight: bold;">{{ logs|length }}</span>
-                        </div>
-                {% endif %}
-                <div class="log-entry updated-entry">
-                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 12px;">
-                        <div><strong>📦 رقم المنتج:</strong> <span style="color: var(--primary-color); font-weight: bold;">{{ log.product_number }}</span></div>
-                        <div><strong>👤 المستخدم:</strong> {{ log.user }}</div>
-                        <div><strong>📅 التاريخ:</strong> <span style="color: var(--text-secondary);">{{ log.created_at|date:"Y-m-d H:i" }}</span></div>
+        {% for group in grouped_logs %}
+            {% if group.grouper == 'updated' %}
+                <div class="operation-section">
+                    <div class="operation-header updated">
+                        <h2>✏️ تعديل منتجات</h2>
+                        <span style="background: rgba(255,255,255,0.3); padding: 5px 15px; border-radius: 20px; font-weight: bold;">{% if action_counts.updated %}{{ action_counts.updated }}{% else %}{{ group.list|length }}{% endif %}</span>
                     </div>
-                    {% if log.notes %}
-                        <div style="background: #dbeafe; padding: 12px; border-radius: 8px; font-size: 0.95rem; color: #1e40af; border-right: 3px solid #3b82f6;">
-                            <strong>📝 التغييرات:</strong><br>{{ log.notes }}
-                        </div>
-                    {% endif %}
+        {% for log in group.list %}
+            <div class="log-entry updated-entry">
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 12px;">
+                    <div><strong>📦 رقم المنتج:</strong> <span style="color: var(--primary-color); font-weight: bold;">{{ log.product_number }}</span></div>
+                    <div><strong>👤 المستخدم:</strong> {{ log.user }}</div>
+                    <div><strong>📅 التاريخ:</strong> <span style="color: var(--text-secondary);">{{ log.created_at|date:"Y-m-d H:i" }}</span></div>
                 </div>
-                {% if forloop.last %}</div>{% endif %}
+                {% if log.notes %}
+                    <div style="background: #dbeafe; padding: 12px; border-radius: 8px; font-size: 0.95rem; color: #1e40af; border-right: 3px solid #3b82f6;">
+                        <strong>📝 التغييرات:</strong><br>{{ log.notes }}
+                    </div>
+                {% endif %}
+            </div>
+        {% endfor %}
+                </div>
             {% endif %}
         {% endfor %}
 
         <!-- سحب كميات -->
-        {% for log in logs %}
-            {% if log.action == 'quantity_taken' %}
-                {% if forloop.first %}
-                    <div class="operation-section">
-                        <div class="operation-header quantity_taken">
-                            <h2>📤 سحب كميات</h2>
-                            <span style="background: rgba(255,255,255,0.3); padding: 5px 15px; border-radius: 20px; font-weight: bold;">{{ logs|length }}</span>
-                        </div>
-                {% endif %}
-                <div class="log-entry quantity_taken-entry">
-                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px;">
-                        <div><strong>📦 رقم المنتج:</strong> <span style="color: var(--primary-color); font-weight: bold;">{{ log.product_number }}</span></div>
-                        <div><strong>📊 قبل:</strong> <span style="color: #6b7280; font-size: 1.1rem;">{{ log.quantity_before }}</span></div>
-                        <div><strong>📉 بعد:</strong> <span style="color: #dc2626; font-size: 1.1rem; font-weight: bold;">{{ log.quantity_after }}</span></div>
-                        <div><strong>➖ المسحوب:</strong> <span style="color: #dc2626; font-size: 1.1rem; font-weight: bold;">{{ log.quantity_change }} وحدة</span></div>
-                        <div><strong>👤 المستخدم:</strong> {{ log.user }}</div>
-                        <div><strong>📅 التاريخ:</strong> <span style="color: var(--text-secondary);">{{ log.created_at|date:"Y-m-d H:i" }}</span></div>
+        {% for group in grouped_logs %}
+            {% if group.grouper == 'quantity_taken' %}
+                <div class="operation-section">
+                    <div class="operation-header quantity_taken">
+                        <h2>📤 سحب كميات</h2>
+                        <span style="background: rgba(255,255,255,0.3); padding: 5px 15px; border-radius: 20px; font-weight: bold;">{% if action_counts.quantity_taken %}{{ action_counts.quantity_taken }}{% else %}{{ group.list|length }}{% endif %}</span>
                     </div>
+        {% for log in group.list %}
+            <div class="log-entry quantity_taken-entry">
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px;">
+                    <div><strong>📦 رقم المنتج:</strong> <span style="color: var(--primary-color); font-weight: bold;">{{ log.product_number }}</span></div>
+                    <div><strong>📊 قبل:</strong> <span style="color: #6b7280; font-size: 1.1rem;">{{ log.quantity_before }}</span></div>
+                    <div><strong>📉 بعد:</strong> <span style="color: #dc2626; font-size: 1.1rem; font-weight: bold;">{{ log.quantity_after }}</span></div>
+                    <div><strong>➖ المسحوب:</strong> <span style="color: #dc2626; font-size: 1.1rem; font-weight: bold;">{{ log.quantity_change }} وحدة</span></div>
+                    <div><strong>👤 المستخدم:</strong> {{ log.user }}</div>
+                    <div><strong>📅 التاريخ:</strong> <span style="color: var(--text-secondary);">{{ log.created_at|date:"Y-m-d H:i" }}</span></div>
                 </div>
-                {% if forloop.last %}</div>{% endif %}
+            </div>
+        {% endfor %}
+                </div>
             {% endif %}
         {% endfor %}
 
         <!-- ربط بالمواقع -->
-        {% for log in logs %}
-            {% if log.action == 'location_assigned' %}
-                {% if forloop.first %}
-                    <div class="operation-section">
-                        <div class="operation-header location_assigned">
-                            <h2>📍 ربط بالمواقع</h2>
-                            <span style="background: rgba(255,255,255,0.3); padding: 5px 15px; border-radius: 20px; font-weight: bold;">{{ logs|length }}</span>
-                        </div>
-                {% endif %}
-                <div class="log-entry location_assigned-entry">
-                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
-                        <div><strong>📦 رقم المنتج:</strong> <span style="color: var(--primary-color); font-weight: bold;">{{ log.product_number }}</span></div>
-                        <div style="grid-column: span 2;"><strong>📍 المواقع:</strong> <span style="color: #8b5cf6;">{{ log.notes }}</span></div>
-                        <div><strong>👤 المستخدم:</strong> {{ log.user }}</div>
-                        <div><strong>📅 التاريخ:</strong> <span style="color: var(--text-secondary);">{{ log.created_at|date:"Y-m-d H:i" }}</span></div>
+        {% for group in grouped_logs %}
+            {% if group.grouper == 'location_assigned' %}
+                <div class="operation-section">
+                    <div class="operation-header location_assigned">
+                        <h2>📍 ربط بالمواقع</h2>
+                        <span style="background: rgba(255,255,255,0.3); padding: 5px 15px; border-radius: 20px; font-weight: bold;">{% if action_counts.location_assigned %}{{ action_counts.location_assigned }}{% else %}{{ group.list|length }}{% endif %}</span>
                     </div>
+        {% for log in group.list %}
+            <div class="log-entry location_assigned-entry">
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+                    <div><strong>📦 رقم المنتج:</strong> <span style="color: var(--primary-color); font-weight: bold;">{{ log.product_number }}</span></div>
+                    <div style="grid-column: span 2;"><strong>📍 المواقع:</strong> <span style="color: #8b5cf6;">{{ log.notes }}</span></div>
+                    <div><strong>👤 المستخدم:</strong> {{ log.user }}</div>
+                    <div><strong>📅 التاريخ:</strong> <span style="color: var(--text-secondary);">{{ log.created_at|date:"Y-m-d H:i" }}</span></div>
                 </div>
-                {% if forloop.last %}</div>{% endif %}
+            </div>
+        {% endfor %}
+                </div>
             {% endif %}
         {% endfor %}
 
         <!-- حذف منتجات -->
-        {% for log in logs %}
-            {% if log.action == 'deleted' %}
-                {% if forloop.first %}
-                    <div class="operation-section">
-                        <div class="operation-header deleted">
-                            <h2>🗑️ حذف منتجات</h2>
-                            <span style="background: rgba(255,255,255,0.3); padding: 5px 15px; border-radius: 20px; font-weight: bold;">{{ logs|length }}</span>
-                        </div>
-                {% endif %}
-                <div class="log-entry deleted-entry">
-                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
-                        <div><strong>📦 رقم المنتج:</strong> <span style="color: #dc2626; font-weight: bold;">{{ log.product_number }}</span></div>
-                        <div><strong>📊 الكمية المحذوفة:</strong> <span style="color: #dc2626; font-weight: bold;">{{ log.quantity_before }} وحدة</span></div>
-                        <div><strong>👤 المستخدم:</strong> {{ log.user }}</div>
-                        <div><strong>📅 التاريخ:</strong> <span style="color: var(--text-secondary);">{{ log.created_at|date:"Y-m-d H:i" }}</span></div>
+        {% for group in grouped_logs %}
+            {% if group.grouper == 'deleted' %}
+                <div class="operation-section">
+                    <div class="operation-header deleted">
+                        <h2>🗑️ حذف منتجات</h2>
+                        <span style="background: rgba(255,255,255,0.3); padding: 5px 15px; border-radius: 20px; font-weight: bold;">{% if action_counts.deleted %}{{ action_counts.deleted }}{% else %}{{ group.list|length }}{% endif %}</span>
                     </div>
-                    {% if log.notes %}
-                        <div style="margin-top: 12px; padding: 10px; background: rgba(239,68,68,0.1); border-radius: 6px; font-size: 0.9rem; color: #991b1b;">
-                            {{ log.notes }}
-                        </div>
-                    {% endif %}
+        {% for log in group.list %}
+            <div class="log-entry deleted-entry">
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+                    <div><strong>📦 رقم المنتج:</strong> <span style="color: #dc2626; font-weight: bold;">{{ log.product_number }}</span></div>
+                    <div><strong>📊 الكمية المحذوفة:</strong> <span style="color: #dc2626; font-weight: bold;">{{ log.quantity_before }} وحدة</span></div>
+                    <div><strong>👤 المستخدم:</strong> {{ log.user }}</div>
+                    <div><strong>📅 التاريخ:</strong> <span style="color: var(--text-secondary);">{{ log.created_at|date:"Y-m-d H:i" }}</span></div>
                 </div>
-                {% if forloop.last %}</div>{% endif %}
+                {% if log.notes %}
+                    <div style="margin-top: 12px; padding: 10px; background: rgba(239,68,68,0.1); border-radius: 6px; font-size: 0.9rem; color: #991b1b;">
+                        {{ log.notes }}
+                    </div>
+                {% endif %}
+            </div>
+        {% endfor %}
+                </div>
             {% endif %}
         {% endfor %}
 

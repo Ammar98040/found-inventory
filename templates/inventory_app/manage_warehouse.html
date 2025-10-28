@@ -6,7 +6,9 @@
     <title>إدارة المستودع - Warehouse Management</title>
     {% load static %}
     <link rel="stylesheet" href="{% static 'css/warehouse_management.css' %}">
+    <link rel="stylesheet" href="{% static 'css/manage_warehouse_grid.css' %}">
     <link rel="stylesheet" href="{% static 'css/sidebar.css' %}">
+    <link rel="stylesheet" href="{% static 'css/product_buttons.css' %}">
     <style>
         /* تحسينات للشاشات الصغيرة */
         @media (max-width: 768px) {
@@ -90,15 +92,15 @@
             }
             
             .grid-cell {
-                min-width: 40px !important;
-                height: 40px !important;
-                font-size: 0.7rem;
+                min-width: 45px !important;
+                height: 45px !important;
+                font-size: 0.65rem;
             }
             
             .grid-cell-header {
-                min-width: 35px !important;
-                height: 35px !important;
-                font-size: 0.7rem;
+                min-width: 45px !important;
+                height: 45px !important;
+                font-size: 0.65rem;
             }
         }
         
@@ -139,15 +141,15 @@
             }
             
             .grid-cell {
-                min-width: 35px !important;
-                height: 35px !important;
-                font-size: 0.6rem;
+                min-width: 40px !important;
+                height: 40px !important;
+                font-size: 0.55rem;
             }
             
             .grid-cell-header {
-                min-width: 30px !important;
-                height: 30px !important;
-                font-size: 0.6rem;
+                min-width: 40px !important;
+                height: 40px !important;
+                font-size: 0.55rem;
             }
         }
     </style>
@@ -176,27 +178,34 @@
         <div class="management-panel">
             <h2>⚙️ إدارة الشبكة</h2>
             <div class="btn-group">
-                <button onclick="addRow()" class="btn btn-success">
-                    ➕ إضافة صف
+                <button onclick="addRow()" class="btn btn--sm btn--success">
+                    <span class="icon">➕</span>
+                    <span>إضافة صف</span>
                 </button>
-                <button onclick="addColumn()" class="btn btn-success">
-                    ➕ إضافة عمود
+                <button onclick="addColumn()" class="btn btn--sm btn--success">
+                    <span class="icon">➕</span>
+                    <span>إضافة عمود</span>
                 </button>
-                <button onclick="deleteLastRow()" class="btn btn-danger">
-                    ➖ حذف آخر صف
+                <button onclick="deleteLastRow()" class="btn btn--sm btn--danger">
+                    <span class="icon">➖</span>
+                    <span>حذف آخر صف</span>
                 </button>
-                <button onclick="deleteLastColumn()" class="btn btn-danger">
-                    ➖ حذف آخر عمود
+                <button onclick="deleteLastColumn()" class="btn btn--sm btn--danger">
+                    <span class="icon">➖</span>
+                    <span>حذف آخر عمود</span>
                 </button>
             </div>
-            <button onclick="refreshGrid()" class="btn btn-info">
-                🔄 تحديث الشبكة
+            <button onclick="refreshGrid()" class="btn btn--sm btn--info" style="width: 100%; margin-top: 10px;">
+                <span class="icon">🔄</span>
+                <span>تحديث الشبكة</span>
             </button>
         </div>
 
         <div class="warehouse-grid-container">
             <h2>📦 شبكة المستودع</h2>
-            <div id="warehouse-grid" class="warehouse-grid"></div>
+            <div class="warehouse-grid-wrapper">
+                <div id="warehouse-grid" class="warehouse-grid"></div>
+            </div>
         </div>
 
         <div id="loading" class="loading" style="display: none;">

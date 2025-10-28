@@ -1,0 +1,224 @@
+/* 
+ * CSS خاص بشبكة الأماكن في صفحة قائمة الأماكن
+ * هذا الملف منفصل تماماً لتجنب التعارض مع الأقسام الأخرى
+ */
+
+/* Container خاص بشبكة الأماكن */
+.warehouse-grid-container {
+    background: white;
+    padding: 30px;
+    border-radius: 12px;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+    margin-bottom: 20px;
+    position: relative;
+    z-index: 10;
+}
+
+/* Wrapper خاص بالتمرير الأفقي - فقط لصفحة الأماكن */
+.warehouse-grid-wrapper {
+    width: 100%;
+    overflow-x: auto;
+    overflow-y: visible;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+    scrollbar-color: #cbd5e1 #f1f5f9;
+    position: relative;
+    z-index: 10;
+    padding-bottom: 5px;
+    margin-bottom: 10px;
+}
+
+.warehouse-grid-wrapper::-webkit-scrollbar {
+    height: 12px;
+}
+
+.warehouse-grid-wrapper::-webkit-scrollbar-track {
+    background: #f1f5f9;
+    border-radius: 10px;
+    margin: 5px;
+}
+
+.warehouse-grid-wrapper::-webkit-scrollbar-thumb {
+    background: #94a3b8;
+    border-radius: 10px;
+    border: 2px solid #f1f5f9;
+}
+
+.warehouse-grid-wrapper::-webkit-scrollbar-thumb:hover {
+    background: #64748b;
+}
+
+/* الشبكة - خاص بصفحة الأماكن */
+#warehouse-grid {
+    display: inline-block;
+    border: 2px solid #e2e8f0;
+    border-radius: 8px;
+    background: white;
+    min-width: min-content;
+    flex-shrink: 0;
+    position: relative;
+    z-index: 10;
+}
+
+/* الخلايا - خاص بصفحة الأماكن */
+#warehouse-grid .grid-cell {
+    width: 50px !important;
+    height: 50px !important;
+    min-width: 50px !important;
+    min-height: 50px !important;
+    flex-shrink: 0;
+    border: 1px solid #e2e8f0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    transition: all 0.2s;
+}
+
+/* رأس الجدول - خاص بصفحة الأماكن */
+#warehouse-grid .grid-cell-header {
+    background: #667eea;
+    color: white;
+    font-weight: bold;
+    cursor: default;
+    width: 50px !important;
+    height: 50px !important;
+    flex-shrink: 0;
+}
+
+#warehouse-grid .grid-cell-header:hover {
+    background: #667eea;
+    transform: none;
+}
+
+/* الخلايا التي تحتوي على منتجات */
+#warehouse-grid .grid-cell.has-products {
+    background: #34d399;
+    border: 3px solid #059669;
+    color: white;
+    font-weight: bold;
+    box-shadow: 0 2px 4px rgba(16, 185, 129, 0.3);
+}
+
+#warehouse-grid .grid-cell.has-products:hover {
+    transform: scale(1.05);
+    box-shadow: 0 4px 6px rgba(16, 185, 129, 0.3);
+}
+
+/* الخلايا الفارغة */
+#warehouse-grid .grid-cell.empty,
+#warehouse-grid .grid-cell:not(.has-products):not(.grid-cell-header) {
+    background: #f1f5f9;
+    color: #64748b;
+}
+
+/* الـ rows - خاص بصفحة الأماكن */
+#warehouse-grid .grid-row {
+    display: flex !important;
+    min-width: min-content;
+    flex-shrink: 0;
+}
+
+/* تحسينات للشاشات الصغيرة */
+@media (max-width: 768px) {
+    .warehouse-grid-container {
+        padding: 20px;
+    }
+    
+    .warehouse-grid-wrapper {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        padding-bottom: 10px;
+        margin-bottom: 15px;
+    }
+    
+    #warehouse-grid {
+        display: inline-block;
+        min-width: min-content;
+    }
+    
+    #warehouse-grid .grid-cell {
+        width: 45px !important;
+        height: 45px !important;
+        min-width: 45px !important;
+        min-height: 45px !important;
+    }
+    
+    #warehouse-grid .grid-cell-header {
+        width: 45px !important;
+        height: 45px !important;
+    }
+    
+    /* إضافة indicator للتمرير */
+    .warehouse-grid-wrapper::before {
+        content: '← اسحب يميناً أو يساراً لرؤية جميع الأماكن →';
+        display: block;
+        text-align: center;
+        padding: 10px;
+        background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+        color: #92400e;
+        font-size: 0.85rem;
+        margin-bottom: 10px;
+        border-radius: 8px;
+        border: 2px solid #f59e0b;
+        font-weight: 600;
+    }
+}
+
+@media (max-width: 480px) {
+    .warehouse-grid-container {
+        padding: 15px;
+    }
+    
+    .warehouse-grid-wrapper {
+        -webkit-overflow-scrolling: touch;
+        scroll-behavior: smooth;
+    }
+    
+    #warehouse-grid .grid-cell {
+        width: 40px !important;
+        height: 40px !important;
+        min-width: 40px !important;
+        min-height: 40px !important;
+        font-size: 0.5rem;
+    }
+    
+    #warehouse-grid .grid-cell-header {
+        width: 40px !important;
+        height: 40px !important;
+        font-size: 0.7rem;
+    }
+    
+    .warehouse-grid-wrapper::before {
+        font-size: 0.75rem;
+        padding: 8px;
+    }
+}
+
+/* تحسينات للوضع الأفقي على الجوال */
+@media (max-width: 900px) and (orientation: landscape) {
+    #warehouse-grid .grid-cell {
+        width: 55px !important;
+        height: 55px !important;
+        min-width: 55px !important;
+        min-height: 55px !important;
+    }
+    
+    #warehouse-grid .grid-cell-header {
+        width: 55px !important;
+        height: 55px !important;
+    }
+}
+
+/* تحسينات خاصة لبريدج الوصف */
+.location-badge {
+    position: absolute;
+    bottom: 2px;
+    right: 2px;
+    background: #10b981;
+    color: white;
+    font-size: 0.6rem;
+    padding: 2px 4px;
+    border-radius: 4px;
+}
+

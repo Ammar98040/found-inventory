@@ -42,6 +42,7 @@ urlpatterns = [
     
     # إدارة الأماكن
     path('locations/', views.locations_list, name='locations_list'),
+    path('api/update-location-notes/', views.update_location_notes, name='update_location_notes'),
     
     # سجلات العمليات
     path('audit-logs/', views.audit_logs, name='audit_logs'),

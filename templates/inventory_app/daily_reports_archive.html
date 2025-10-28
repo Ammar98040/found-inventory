@@ -7,6 +7,7 @@
     {% load static %}
     <link rel="stylesheet" href="{% static 'css/style.css' %}">
     <link rel="stylesheet" href="{% static 'css/sidebar.css' %}">
+    <link rel="stylesheet" href="{% static 'css/product_buttons.css' %}">
     <style>
         .archive-header {
             background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
@@ -77,15 +78,17 @@
 
         <!-- البحث -->
         <div class="search-box">
-            <form method="GET" style="display: flex; gap: 10px;">
-                <input type="text" name="search" placeholder="ابحث بالتاريخ الميلادي أو الهجري..." 
+            <form method="GET" style="display: flex; gap: 12px; flex-wrap: wrap; align-items: center;">
+                <input type="text" name="search" placeholder="🔍 ابحث بالتاريخ الميلادي أو الهجري..." 
                        value="{{ search_query }}" 
-                       style="flex: 1; padding: 12px; border: 2px solid var(--border-color); border-radius: 8px; font-size: 1rem;">
-                <button type="submit" class="btn btn-primary" style="padding: 12px 30px;">
-                    🔍 بحث
+                       style="flex: 1; min-width: 200px; padding: 12px; border: 2px solid #e2e8f0; border-radius: 8px; font-size: 0.95rem; transition: all 0.2s;">
+                <button type="submit" class="btn btn--sm btn--primary">
+                    <span class="icon">🔍</span>
+                    <span>بحث</span>
                 </button>
-                <a href="/daily-reports-archive/" class="btn" style="background: var(--text-secondary); padding: 12px 30px; text-decoration: none; border-radius: 8px; color: white;">
-                    ↻ إعادة تعيين
+                <a href="/daily-reports-archive/" class="btn btn--sm btn--neutral">
+                    <span class="icon">↻</span>
+                    <span>إعادة تعيين</span>
                 </a>
             </form>
         </div>
@@ -137,8 +140,9 @@
                 <div style="font-size: 4rem; margin-bottom: 20px;">📭</div>
                 <h2 style="color: var(--text-secondary);">لا توجد تقارير محفوظة</h2>
                 <p style="color: var(--text-secondary); margin-top: 10px;">قم بحفظ التقارير من صفحة التقارير اليومية</p>
-                <a href="/daily-reports/" class="btn btn-primary" style="margin-top: 20px; display: inline-block;">
-                    ← العودة للتقارير اليومية
+                <a href="/daily-reports/" class="btn btn--sm btn--primary" style="margin-top: 20px; display: inline-flex;">
+                    <span class="icon">←</span>
+                    <span>العودة للتقارير اليومية</span>
                 </a>
             </div>
             {% endfor %}

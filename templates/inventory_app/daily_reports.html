@@ -7,6 +7,7 @@
     {% load static %}
     <link rel="stylesheet" href="{% static 'css/style.css' %}">
     <link rel="stylesheet" href="{% static 'css/sidebar.css' %}">
+    <link rel="stylesheet" href="{% static 'css/product_buttons.css' %}">
     <style>
         .reports-header {
             display: flex;
@@ -123,15 +124,18 @@
     <div class="container">
         <div class="reports-header">
             <h1>📊 التقارير اليومية - {{ today }}</h1>
-            <div style="display: flex; gap: 10px;">
-                <button onclick="window.location.reload()" class="btn" style="background: white; color: #667eea; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer;">
-                    🔄 تحديث
+            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                <button onclick="window.location.reload()" class="btn btn--sm btn--info">
+                    <span class="icon">🔄</span>
+                    <span>تحديث</span>
                 </button>
-                <button onclick="saveReport()" class="btn" style="background: #10b981; color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer;">
-                    💾 حفظ في السجل
+                <button onclick="saveReport()" class="btn btn--sm btn--success">
+                    <span class="icon">💾</span>
+                    <span>حفظ في السجل</span>
                 </button>
-                <a href="/daily-reports-archive/" class="btn" style="background: #f59e0b; color: white; border: none; padding: 10px 20px; border-radius: 8px; text-decoration: none;">
-                    📚 السجل
+                <a href="/daily-reports-archive/" class="btn btn--sm btn--neutral">
+                    <span class="icon">📚</span>
+                    <span>السجل</span>
                 </a>
             </div>
         </div>

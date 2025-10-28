@@ -186,7 +186,9 @@ function createProductCard(product, index) {
                 <div class="location-item">
                     <div class="location-info">
                         <div class="location-id">${location.full_location}</div>
-                        ${location.notes ? `<div class="location-details">${location.notes}</div>` : ''}
+                        ${location.notes ? `<div class="location-details" style="color: #64748b; font-size: 0.85rem; margin-top: 5px; padding: 8px; background: #f1f5f9; border-radius: 6px; border-right: 3px solid #667eea;">
+                            📝 ${location.notes}
+                        </div>` : ''}
                     </div>
                     <div class="location-actions">
                         <button onclick="highlightLocation(${location.x}, ${location.y})">
@@ -306,30 +308,36 @@ async function drawWarehouse(results) {
     const isMobile = window.innerWidth <= 768;
     const isVerySmall = window.innerWidth <= 480;
     
-    // على الشاشات الصغيرة (أقل من 480px)، اعرض قائمة بسيطة دائماً
+    // تحديد أحجام الخلايا بناءً على حجم الشاشة - دقة عالية
+    let cellSize, headerCellWidth, headerCellHeight, fontSize, locationFontSize, productFontSize;
+    
     if (isVerySmall) {
-        drawSimpleList(foundProducts, warehouseData);
-        return;
+        cellSize = '40px';
+        headerCellWidth = '40px';
+        headerCellHeight = '40px';
+        fontSize = '0.65rem';
+        locationFontSize = '0.5rem';
+        productFontSize = '0.45rem';
+    } else if (isMobile) {
+        cellSize = '45px';
+        headerCellWidth = '45px';
+        headerCellHeight = '45px';
+        fontSize = '0.7rem';
+        locationFontSize = '0.55rem';
+        productFontSize = '0.5rem';
+    } else {
+        cellSize = '50px';
+        headerCellWidth = '50px';
+        headerCellHeight = '50px';
+        fontSize = '0.75rem';
+        locationFontSize = '0.6rem';
+        productFontSize = '0.55rem';
     }
-    
-    // على الشاشات المتوسطة، اعرض القائمة البسيطة مع إمكانية التبديل
-    if (isMobile) {
-        drawSimpleListWithToggle(foundProducts, warehouseData);
-        return;
-    }
-    
-    const cellSize = isMobile ? '45px' : '80px';
-    const headerCellWidth = isMobile ? '35px' : '50px';
-    const headerCellHeight = isMobile ? '35px' : '50px';
-    const fontSize = isMobile ? '0.65rem' : '0.8rem';
-    const locationFontSize = isMobile ? '0.55rem' : '0.65rem';
-    const productFontSize = isMobile ? '0.5rem' : '0.6rem';
     
     // إنشاء شبكة HTML
     const gridContainer = document.getElementById('warehouse-grid');
     gridContainer.innerHTML = '';
-    gridContainer.style.display = 'inline-block';
-    gridContainer.classList.add('warehouse-grid');
+    // CSS مسؤول عن العرض - لا نحتاج to inline styles
     
     // إنشاء رأس الأعمدة
     const headerRow = document.createElement('div');
@@ -373,16 +381,15 @@ async function drawWarehouse(results) {
                 p.locations && p.locations.some(loc => loc.row === row && loc.column === col)
             );
             
-            // جعل جميع الخلايا بنفس الحجم والتصميم لمنع التداخل
+            // جعل جميع الخلايا بنفس الحجم والتصميم لمنع التداخل - دقة عالية
             cell.style.cssText = `width: ${cellSize}; height: ${cellSize}; display: flex; flex-direction: column; align-items: center; justify-content: center; border: 2px solid #e2e8f0; flex-shrink: 0; position: relative; overflow: hidden;`;
             cell.classList.add('warehouse-grid-cell');
             
-            const locationText = isMobile ? `${row}-${col}` : `R${row}C${col}`;
+            const locationText = `R${row}C${col}`;
             
             if (hasProduct) {
-                // خلية تحتوي على منتج - نفس الحجم ولكن مع خلفية ملونة
-                cell.style.background = '#34d399';
-                cell.style.borderColor = '#059669';
+                // خلية تحتوي على منتج
+                cell.classList.add('has-product');
                 
                 const product = foundProducts.find(p => 
                     p.locations && p.locations.some(loc => loc.row === row && loc.column === col)
@@ -390,18 +397,16 @@ async function drawWarehouse(results) {
                 const location = product.locations.find(loc => loc.row === row && loc.column === col);
                 
                 let displayProductText = product.product_number;
-                if (isMobile && product.product_number.length > 6) {
+                if (product.product_number.length > 6) {
                     displayProductText = product.product_number.substring(0, 6);
                 }
                 
-                // تصميم مبسط لنفس الحجم
-                cell.innerHTML = `<div style="font-size: ${locationFontSize}; font-weight: bold; color: white; text-align: center; text-shadow: 0 1px 2px rgba(0,0,0,0.2); line-height: 1.2;">${locationText}<br><span style="font-size: ${productFontSize};">${displayProductText}</span></div>`;
-                cell.title = `الموقع: R${row}C${col}\nالمنتج: ${product.product_number}\nإجمالي: ${product.quantity}`;
+                // استخدام الأنماط الداخلية للتصميم
+                cell.innerHTML = `<div style="font-size: ${locationFontSize}; font-weight: bold; text-align: center; line-height: 1.2;">${locationText}<br><span style="font-size: ${productFontSize};">${displayProductText}</span></div>`;
+                cell.title = `الموقع: R${row}C${col}\nالمنتج: ${product.product_number}\nالكمية: ${product.quantity}`;
             } else {
-                // خلية فارغة - نفس الحجم
-                cell.style.background = '#f1f5f9';
-                cell.style.color = '#64748b';
-                cell.innerHTML = `<div style="font-size: ${locationFontSize}; font-weight: bold; color: #94a3b8; text-align: center;">${locationText}</div>`;
+                // خلية فارغة
+                cell.innerHTML = `<div style="font-size: ${locationFontSize}; font-weight: bold; text-align: center;">${locationText}</div>`;
                 cell.title = `الموقع: R${row}C${col}\nموقع فارغ`;
             }
             
@@ -412,155 +417,7 @@ async function drawWarehouse(results) {
     }
 }
 
-// رسم قائمة بسيطة مع زر التبديل للشاشات المتوسطة
-function drawSimpleListWithToggle(foundProducts, warehouseData) {
-    const gridContainer = document.getElementById('warehouse-grid');
-    gridContainer.innerHTML = '';
-    gridContainer.style.cssText = 'display: block; width: 100%;';
-    
-    // إضافة رأس مع زر التبديل
-    const header = document.createElement('div');
-    header.style.cssText = 'background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px; border-radius: 8px; margin-bottom: 15px;';
-    
-    const title = document.createElement('div');
-    title.style.cssText = 'text-align: center; font-weight: bold; font-size: 1.1rem; margin-bottom: 10px;';
-    title.textContent = '📍 مواقع المنتجات في المستودع';
-    header.appendChild(title);
-    
-    const toggleBtn = document.createElement('button');
-    toggleBtn.style.cssText = 'width: 100%; padding: 10px; background: rgba(255,255,255,0.2); border: 2px solid white; border-radius: 6px; color: white; font-weight: bold; cursor: pointer; font-size: 0.9rem;';
-    toggleBtn.textContent = '🔄 التبديل إلى العرض الكامل';
-    toggleBtn.onclick = () => {
-        drawFullWarehouseGrid(foundProducts, warehouseData);
-    };
-    header.appendChild(toggleBtn);
-    
-    gridContainer.appendChild(header);
-    
-    // استخدام نفس دالة القائمة البسيطة
-    drawSimpleListContent(gridContainer, foundProducts, warehouseData);
-}
-
-// رسم قائمة بسيطة للشاشات الصغيرة
-function drawSimpleList(foundProducts, warehouseData) {
-    const gridContainer = document.getElementById('warehouse-grid');
-    gridContainer.innerHTML = '';
-    gridContainer.style.cssText = 'display: block; width: 100%;';
-    
-    // إنشاء رأس
-    const header = document.createElement('div');
-    header.style.cssText = 'background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px; border-radius: 8px; margin-bottom: 15px; text-align: center; font-weight: bold;';
-    header.innerHTML = '📍 مواقع المنتجات في المستودع - العرض المبسط';
-    gridContainer.appendChild(header);
-    
-    drawSimpleListContent(gridContainer, foundProducts, warehouseData);
-}
-
-// رسم المستودع الكامل على الشاشات المتوسطة
-function drawFullWarehouseGrid(foundProducts, warehouseData) {
-    const gridContainer = document.getElementById('warehouse-grid');
-    gridContainer.innerHTML = '';
-    gridContainer.style.display = 'inline-block';
-    
-    const rows = warehouseData.rows || 6;
-    const columns = warehouseData.columns || 15;
-    const isMobile = window.innerWidth <= 768;
-    
-    const cellSize = '50px';
-    const headerCellWidth = '40px';
-    const headerCellHeight = '40px';
-    const fontSize = '0.75rem';
-    const locationFontSize = '0.65rem';
-    const productFontSize = '0.6rem';
-    
-    // إضافة زر للعودة للعرض المبسط
-    const backBtn = document.createElement('button');
-    backBtn.style.cssText = 'width: 100%; padding: 12px; margin-bottom: 15px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 8px; font-weight: bold; font-size: 1rem; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.2);';
-    backBtn.textContent = '🔄 العودة للعرض المبسط';
-    backBtn.onclick = () => {
-        drawSimpleListWithToggle(foundProducts, warehouseData);
-    };
-    gridContainer.appendChild(backBtn);
-    
-    // إنشاء الشبكة الكاملة (نفس الكود السابق)
-    // ... (يتم استخدام الكود الحالي للشبكة)
-}
-
-// محتوى القائمة البسيطة
-function drawSimpleListContent(gridContainer, foundProducts, warehouseData) {
-    // تجميع المواقع حسب المنتج
-    const locationMap = new Map();
-    const allLocations = [];
-    
-    foundProducts.forEach(product => {
-        if (product.locations && product.locations.length > 0) {
-            product.locations.forEach(loc => {
-                const key = `R${loc.row}C${loc.column}`;
-                if (!locationMap.has(key)) {
-                    locationMap.set(key, []);
-                    allLocations.push({
-                        row: loc.row,
-                        column: loc.column,
-                        key: key
-                    });
-                }
-                locationMap.get(key).push({
-                    product_number: product.product_number,
-                    name: product.name,
-                    quantity: product.quantity
-                });
-            });
-        }
-    });
-    
-    // ترتيب المواقع حسب الصف ثم العمود
-    allLocations.sort((a, b) => {
-        if (a.row !== b.row) return a.row - b.row;
-        return a.column - b.column;
-    });
-    
-    // عرض المواقع
-    allLocations.forEach(location => {
-        const locationKey = location.key;
-        const products = locationMap.get(locationKey);
-        
-        const locationCard = document.createElement('div');
-        locationCard.style.cssText = 'background: white; border: 3px solid #10b981; border-radius: 12px; padding: 15px; margin-bottom: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);';
-        
-        const locationHeader = document.createElement('div');
-        locationHeader.style.cssText = 'background: #10b981; color: white; padding: 12px; border-radius: 8px; margin-bottom: 12px; text-align: center; font-weight: bold; font-size: 1.2rem; display: flex; align-items: center; justify-content: center; gap: 10px;';
-        locationHeader.innerHTML = `<span>📍</span><span>${locationKey}</span>`;
-        locationCard.appendChild(locationHeader);
-        
-        products.forEach(product => {
-            const productDiv = document.createElement('div');
-            productDiv.style.cssText = 'background: #f0fdf4; padding: 12px; border-radius: 8px; margin-bottom: 10px; border-right: 4px solid #059669; box-shadow: 0 2px 4px rgba(0,0,0,0.05);';
-            productDiv.innerHTML = `
-                <div style="font-weight: bold; color: #065f46; font-size: 1.1rem; margin-bottom: 8px; display: flex; align-items: center; gap: 10px;">
-                    <span>📦</span>
-                    <span>${product.product_number}</span>
-                </div>
-                <div style="color: #047857; font-size: 1rem; font-weight: 600;">الكمية: ${product.quantity} قطعة</div>
-            `;
-            locationCard.appendChild(productDiv);
-        });
-        
-        gridContainer.appendChild(locationCard);
-    });
-    
-    // إضافة ملخص
-    const summaryDiv = document.createElement('div');
-    summaryDiv.style.cssText = 'background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); padding: 15px; border-radius: 8px; margin-top: 15px; text-align: center; border: 2px solid #0ea5e9;';
-    summaryDiv.innerHTML = `
-        <div style="font-weight: bold; color: #0369a1; font-size: 1.1rem; margin-bottom: 8px;">
-            📊 إجمالي المواقع: ${allLocations.length} موقع
-        </div>
-        <div style="color: #0c4a6e; font-size: 0.95rem;">
-            إجمالي المنتجات: ${foundProducts.length} منتج
-        </div>
-    `;
-    gridContainer.appendChild(summaryDiv);
-}
+// تم حذف دوال العرض البسيط - الآن نعرض الشبكة دائماً على جميع الأحجام بدقة عالية
 
 
 // تمييز موقع معين

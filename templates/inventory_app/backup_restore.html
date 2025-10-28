@@ -7,6 +7,7 @@
     {% load static %}
     <link rel="stylesheet" href="{% static 'css/style.css' %}">
     <link rel="stylesheet" href="{% static 'css/sidebar.css' %}">
+    <link rel="stylesheet" href="{% static 'css/product_buttons.css' %}">
     <style>
         .backup-section {
             background: white;
@@ -121,8 +122,9 @@
                 <p style="color: var(--text-secondary); margin-bottom: 20px;">
                     قم بتنزيل نسخة احتياطية كاملة من جميع بيانات النظام. يمكنك استخدام هذا الملف لاستعادة البيانات لاحقاً.
                 </p>
-                <button onclick="exportBackup()" class="btn btn-primary" style="padding: 12px 30px; font-size: 1.1rem;">
-                    📥 تحميل النسخ الاحتياطي
+                <button onclick="exportBackup()" class="btn btn--sm btn--success">
+                    <span class="icon">📥</span>
+                    <span>تحميل النسخ الاحتياطي</span>
                 </button>
             </div>
         </div>
@@ -151,8 +153,9 @@
                     </label>
                 </div>
                 
-                <button onclick="importBackup()" class="btn" style="background: #10b981; color: white; padding: 12px 30px; font-size: 1.1rem; margin-top: 15px;" id="import-btn" disabled>
-                    🔄 استيراد النسخ الاحتياطي
+                <button onclick="importBackup()" class="btn btn--sm btn--success" style="margin-top: 15px;" id="import-btn" disabled>
+                    <span class="icon">🔄</span>
+                    <span>استيراد النسخ الاحتياطي</span>
                 </button>
             </div>
         </div>
@@ -324,7 +327,9 @@
                     <div style="font-size: 2rem; margin-bottom: 10px;">✅</div>
                     <div style="font-weight: bold; color: #10b981;">${selectedFile.name}</div>
                     <div style="color: var(--text-secondary); font-size: 0.9rem; margin-top: 5px;">${(selectedFile.size / 1024).toFixed(2)} KB</div>
-                    <button onclick="event.stopPropagation(); document.getElementById('backup-file-input').click();" class="btn btn-secondary" style="margin-top: 10px; padding: 5px 15px;">تغيير الملف</button>
+                    <button onclick="event.stopPropagation(); document.getElementById('backup-file-input').click();" class="btn btn--xs btn--neutral" style="margin-top: 10px;">
+                        <span>تغيير الملف</span>
+                    </button>
                 `;
                 
                 document.getElementById('import-btn').disabled = false;

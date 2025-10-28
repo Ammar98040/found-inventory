@@ -6,16 +6,10 @@
     <title>قائمة الأماكن</title>
     {% load static %}
     <link rel="stylesheet" href="{% static 'css/style.css' %}">
-    <link rel="stylesheet" href="{% static 'css/warehouse_management.css' %}">
+    <link rel="stylesheet" href="{% static 'css/locations_grid.css' %}">
     <link rel="stylesheet" href="{% static 'css/sidebar.css' %}">
     <style>
-        .warehouse-grid-container {
-            background: white;
-            padding: 30px;
-            border-radius: 12px;
-            box-shadow: var(--shadow-lg);
-            margin-bottom: 20px;
-        }
+        /* تم نقل CSS للشبكة إلى locations_grid.css */
         
         .warehouse-info-header {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -24,21 +18,6 @@
             border-radius: 12px;
             margin-bottom: 20px;
             text-align: center;
-        }
-        
-        .grid-cell {
-            position: relative;
-        }
-        
-        .location-badge {
-            position: absolute;
-            bottom: 2px;
-            right: 2px;
-            background: #10b981;
-            color: white;
-            font-size: 0.6rem;
-            padding: 2px 4px;
-            border-radius: 4px;
         }
     </style>
 </head>
@@ -59,8 +38,8 @@
         <div class="warehouse-grid-container">
             <h3 style="margin-bottom: 20px; text-align: center;">📍 شبكة الأماكن في المستودع</h3>
             
-            <div class="warehouse-grid-wrapper" style="width: 100%; overflow: auto;">
-                <div id="warehouse-grid" style="display: inline-block; border: 2px solid #e2e8f0; border-radius: 8px;">
+            <div class="warehouse-grid-wrapper">
+                <div id="warehouse-grid">
                     <!-- سيتم إنشاء الشبكة عبر JavaScript -->
                 </div>
             </div>
@@ -80,6 +59,7 @@
                         full_location: '{{ location.full_location }}',
                         has_products: {% if location.products.exists %}true{% else %}false{% endif %},
                         products_count: {{ location.products.count }},
+                        notes: '{{ location.notes|default:"" }}',
                         products: [
                             {% for product in location.products.all %}
                                 '{{ product.product_number }}',
@@ -94,15 +74,17 @@
             headerRow.style.display = 'flex';
             const emptyCell = document.createElement('div');
             emptyCell.className = 'grid-cell grid-cell-header';
-            emptyCell.style.width = '80px';
+            emptyCell.style.width = '50px';
             emptyCell.style.height = '50px';
+            emptyCell.style.flexShrink = '0';
             headerRow.appendChild(emptyCell);
             
             for (let col = 1; col <= columns; col++) {
                 const headerCell = document.createElement('div');
                 headerCell.className = 'grid-cell grid-cell-header';
-                headerCell.style.width = '80px';
+                headerCell.style.width = '50px';
                 headerCell.style.height = '50px';
+                headerCell.style.flexShrink = '0';
                 headerCell.textContent = col;
                 headerRow.appendChild(headerCell);
             }
@@ -116,8 +98,9 @@
                 // رأس الصف
                 const rowHeader = document.createElement('div');
                 rowHeader.className = 'grid-cell grid-cell-header';
-                rowHeader.style.width = '80px';
-                rowHeader.style.height = '80px';
+                rowHeader.style.width = '50px';
+                rowHeader.style.height = '50px';
+                rowHeader.style.flexShrink = '0';
                 rowHeader.textContent = row;
                 rowDiv.appendChild(rowHeader);
                 
@@ -127,25 +110,41 @@
                     
                     const cell = document.createElement('div');
                     cell.className = 'grid-cell';
-                    cell.style.width = '80px';
-                    cell.style.height = '80px';
+                    cell.style.width = '50px';
+                    cell.style.height = '50px';
+                    cell.style.flexShrink = '0';
                     
                     if (location) {
                         if (location.has_products) {
                             cell.classList.add('has-products');
-                            // تصميم محسّن وواضح جداً للموقع مع منتج
-                            cell.innerHTML = '<div style="padding: 5px; text-align: center; line-height: 1.3;">' + 
-                                            '<div style="background: #ffffff; color: #059669; padding: 3px 5px; border-radius: 3px; margin-bottom: 4px; font-size: 0.65rem; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">' + location.full_location + '</div>' +
-                                            '<div style="background: #f0fdf4; color: #065f46; padding: 3px 5px; border-radius: 3px; font-size: 0.6rem; font-weight: bold; border: 1px solid #10b981;">' + location.products[0] + '</div>' +
+                            // تصميم محسّن وواضح للموقع مع منتج (حجم صغير)
+                            cell.innerHTML = '<div style="padding: 2px; text-align: center; line-height: 1.2;">' + 
+                                            '<div style="font-size: 0.5rem; font-weight: bold; color: #059669;">' + location.full_location + '</div>' +
+                                            '<div style="font-size: 0.45rem; color: #065f46;">' + (location.products[0]?.substring(0, 6) || '') + '</div>' +
                                             '</div>';
                         } else {
                             // تصميم واضح للموقع الفارغ
-                            cell.innerHTML = '<div style="font-size: 0.7rem; font-weight: bold; color: #94a3b8; text-align: center; padding-top: 8px;">' + location.full_location + '</div>';
+                            cell.innerHTML = '<div style="font-size: 0.6rem; font-weight: bold; color: #94a3b8; text-align: center;">' + location.full_location + '</div>';
                         }
                         
                         // إضافة tooltip
-                        cell.title = location.full_location + 
-                                    (location.has_products ? '\nمنتج: ' + location.products.join(', ') : '\nموقع فارغ');
+                        let tooltipText = location.full_location;
+                        if (location.has_products) {
+                            tooltipText += '\nمنتج: ' + location.products.join(', ');
+                        } else {
+                            tooltipText += '\nموقع فارغ';
+                        }
+                        if (location.notes) {
+                            tooltipText += '\n📝 الملاحظات: ' + location.notes;
+                        }
+                        tooltipText += '\n\nانقر لإضافة/تعديل الملاحظات';
+                        cell.title = tooltipText;
+                        
+                        // إضافة معالج النقر
+                        cell.style.cursor = 'pointer';
+                        cell.onclick = function() {
+                            showLocationNotesModal(location);
+                        };
                     } else {
                         cell.textContent = '-';
                     }
@@ -155,6 +154,88 @@
                 
                 warehouseGrid.appendChild(rowDiv);
             }
+        </script>
+        
+        <!-- Modal لتعديل الملاحظات -->
+        <div id="locationNotesModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); z-index: 10000; align-items: center; justify-content: center;">
+            <div style="background: white; padding: 30px; border-radius: 12px; max-width: 500px; width: 90%; max-height: 80vh; overflow-y: auto;">
+                <h3 style="margin: 0 0 20px 0; color: #667eea;">📍 تعديل الملاحظات</h3>
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; margin-bottom: 8px; font-weight: bold;">الموقع:</label>
+                    <input type="text" id="modal-location-id" readonly style="width: 100%; padding: 10px; border: 2px solid #e2e8f0; border-radius: 8px; font-weight: bold; background: #f8fafc;">
+                </div>
+                <div style="margin-bottom: 20px;">
+                    <label style="display: block; margin-bottom: 8px; font-weight: bold;">📝 الملاحظات:</label>
+                    <textarea id="modal-location-notes" rows="4" placeholder="أدخل ملاحظات عن الموقع..." style="width: 100%; padding: 10px; border: 2px solid #e2e8f0; border-radius: 8px; resize: vertical;"></textarea>
+                </div>
+                <div style="display: flex; gap: 10px;">
+                    <button onclick="saveLocationNotes()" style="flex: 1; padding: 12px; background: #667eea; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">
+                        💾 حفظ
+                    </button>
+                    <button onclick="closeLocationNotesModal()" style="flex: 1; padding: 12px; background: #e2e8f0; color: #334155; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">
+                        إلغاء
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <script>
+            let currentLocationId = null;
+            
+            function showLocationNotesModal(location) {
+                const modal = document.getElementById('locationNotesModal');
+                const locationInput = document.getElementById('modal-location-id');
+                const notesTextarea = document.getElementById('modal-location-notes');
+                
+                currentLocationId = location.id;
+                locationInput.value = location.full_location;
+                notesTextarea.value = location.notes || '';
+                
+                modal.style.display = 'flex';
+            }
+            
+            function closeLocationNotesModal() {
+                document.getElementById('locationNotesModal').style.display = 'none';
+                currentLocationId = null;
+            }
+            
+            function saveLocationNotes() {
+                if (!currentLocationId) return;
+                
+                const notes = document.getElementById('modal-location-notes').value;
+                
+                fetch('/api/update-location-notes/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': '{{ csrf_token }}'
+                    },
+                    body: JSON.stringify({
+                        location_id: currentLocationId,
+                        notes: notes
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert('✅ تم حفظ الملاحظات بنجاح');
+                        closeLocationNotesModal();
+                        location.reload();
+                    } else {
+                        alert('❌ حدث خطأ: ' + (data.error || 'غير معروف'));
+                    }
+                })
+                .catch(error => {
+                    alert('❌ حدث خطأ: ' + error.message);
+                });
+            }
+            
+            // إغلاق Modal عند الضغط خارجها
+            document.getElementById('locationNotesModal').addEventListener('click', function(e) {
+                if (e.target === this) {
+                    closeLocationNotesModal();
+                }
+            });
         </script>
     </div>
     
