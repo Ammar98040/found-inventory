@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>سجل الطلبات المسحوبة - نظام إدارة المستودع</title>
+    {% load static %}
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    <link rel="stylesheet" href="{% static 'css/sidebar.css' %}">
+    
+    <style>
+        .orders-container {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: var(--shadow-lg);
+        }
+        
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+        
+        .orders-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+        }
+        
+        .order-card {
+            background: white;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 20px;
+            transition: all 0.3s;
+            position: relative;
+        }
+        
+        .order-card:hover {
+            border-color: #667eea;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transform: translateY(-2px);
+        }
+        
+        .order-number {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 10px;
+            font-family: monospace;
+        }
+        
+        .order-details {
+            margin: 15px 0;
+        }
+        
+        .order-detail-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #f1f5f9;
+        }
+        
+        .order-detail-item:last-child {
+            border-bottom: none;
+        }
+        
+        .detail-label {
+            color: #64748b;
+            font-size: 0.9rem;
+        }
+        
+        .detail-value {
+            font-weight: bold;
+            color: #1e293b;
+        }
+        
+        .order-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 2px solid #f1f5f9;
+        }
+        
+        .order-date {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            font-size: 0.8rem;
+            color: #64748b;
+            background: #f1f5f9;
+            padding: 5px 10px;
+            border-radius: 20px;
+        }
+        
+        .btn-sm {
+            padding: 8px 16px;
+            font-size: 0.9rem;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #64748b;
+        }
+        
+        .empty-state-icon {
+            font-size: 4rem;
+            margin-bottom: 20px;
+        }
+        
+        @media (max-width: 768px) {
+            .orders-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .page-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="page-header">
+            <h1>📋 سجل الطلبات المسحوبة</h1>
+            <div>
+                <a href="/" class="btn btn-primary">
+                    <span class="btn-icon">🏠</span>
+                    الرئيسية
+                </a>
+            </div>
+        </div>
+        
+        <div class="orders-container">
+            {% if orders %}
+                <div class="orders-grid">
+                    {% for order in orders %}
+                        <div class="order-card">
+                            <div class="order-date">{{ order.created_at|date:"Y-m-d H:i" }}</div>
+                            <div class="order-number">{{ order.order_number }}</div>
+                            
+                            <div class="order-details">
+                                <div class="order-detail-item">
+                                    <span class="detail-label">عدد المنتجات:</span>
+                                    <span class="detail-value">{{ order.total_products }}</span>
+                                </div>
+                                <div class="order-detail-item">
+                                    <span class="detail-label">إجمالي الكميات:</span>
+                                    <span class="detail-value">{{ order.total_quantities }}</span>
+                                </div>
+                            </div>
+                            
+                            <div class="order-actions">
+                                <a href="/orders/{{ order.id }}/" class="btn btn-primary btn-sm" style="flex: 1;">
+                                    <span class="btn-icon">👁️</span>
+                                    التفاصيل
+                                </a>
+                                <button onclick="deleteOrder({{ order.id }}, '{{ order.order_number }}')" class="btn btn-sm" style="background: #ef4444; color: white; flex: 1;">
+                                    <span class="btn-icon">🗑️</span>
+                                    حذف
+                                </button>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="empty-state">
+                    <div class="empty-state-icon">📭</div>
+                    <h3>لا توجد طلبات مسحوبة</h3>
+                    <p>لم يتم سحب أي طلبات حتى الآن</p>
+                    <a href="/" class="btn btn-primary" style="margin-top: 20px;">
+                        العودة إلى البحث
+                    </a>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+    
+    <script>
+        async function deleteOrder(orderId, orderNumber) {
+            if (!confirm(`هل أنت متأكد من حذف الطلبية ${orderNumber}؟`)) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/delete-order/${orderId}/`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    alert('✓ ' + data.message);
+                    location.reload();
+                } else {
+                    alert('✗ خطأ: ' + data.error);
+                }
+            } catch (error) {
+                alert('✗ خطأ: ' + error.message);
+            }
+        }
+    </script>
+</body>
+</html>

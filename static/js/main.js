@@ -191,7 +191,7 @@ function createProductCard(product, index) {
                         </div>` : ''}
                     </div>
                     <div class="location-actions">
-                        <button onclick="highlightLocation(${location.x}, ${location.y})">
+                        <button onclick="highlightLocation(${location.column}, ${location.row})">
                             🔍 عرض على الخريطة
                         </button>
                     </div>
@@ -315,23 +315,23 @@ async function drawWarehouse(results) {
         cellSize = '40px';
         headerCellWidth = '40px';
         headerCellHeight = '40px';
-        fontSize = '0.65rem';
-        locationFontSize = '0.5rem';
-        productFontSize = '0.45rem';
+        fontSize = '0.7rem';
+        locationFontSize = '0.45rem';
+        productFontSize = '0.5rem';
     } else if (isMobile) {
         cellSize = '45px';
         headerCellWidth = '45px';
         headerCellHeight = '45px';
-        fontSize = '0.7rem';
-        locationFontSize = '0.55rem';
-        productFontSize = '0.5rem';
+        fontSize = '0.75rem';
+        locationFontSize = '0.5rem';
+        productFontSize = '0.55rem';
     } else {
         cellSize = '50px';
         headerCellWidth = '50px';
         headerCellHeight = '50px';
-        fontSize = '0.75rem';
-        locationFontSize = '0.6rem';
-        productFontSize = '0.55rem';
+        fontSize = '0.8rem';
+        locationFontSize = '0.5rem';
+        productFontSize = '0.65rem';
     }
     
     // إنشاء شبكة HTML
@@ -390,23 +390,45 @@ async function drawWarehouse(results) {
             if (hasProduct) {
                 // خلية تحتوي على منتج
                 cell.classList.add('has-product');
+                cell.style.background = '#ef4444';
+                cell.style.border = '3px solid #dc2626';
+                cell.style.color = 'white';
+                cell.style.fontWeight = 'bold';
+                cell.style.boxShadow = '0 2px 4px rgba(239, 68, 68, 0.3)';
                 
                 const product = foundProducts.find(p => 
                     p.locations && p.locations.some(loc => loc.row === row && loc.column === col)
                 );
                 const location = product.locations.find(loc => loc.row === row && loc.column === col);
                 
+                // عرض رقم المنتج كامل بتصميم أفضل
                 let displayProductText = product.product_number;
-                if (product.product_number.length > 6) {
-                    displayProductText = product.product_number.substring(0, 6);
-                }
                 
-                // استخدام الأنماط الداخلية للتصميم
-                cell.innerHTML = `<div style="font-size: ${locationFontSize}; font-weight: bold; text-align: center; line-height: 1.2;">${locationText}<br><span style="font-size: ${productFontSize};">${displayProductText}</span></div>`;
+                // استخدام الأنماط الداخلية للتصميم - تحسين التنسيق
+                cell.innerHTML = `
+                    <div style="display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100%; width: 100%; padding: 2px; box-sizing: border-box;">
+                        <div style="font-size: ${locationFontSize}; color: rgba(255,255,255,0.7); font-weight: bold; line-height: 1.1; margin-bottom: 2px;">${locationText}</div>
+                        <div style="font-size: ${productFontSize}; color: white; font-weight: bold; word-break: break-all; overflow-wrap: break-word; max-width: 100%;">${displayProductText}</div>
+                    </div>
+                `;
                 cell.title = `الموقع: R${row}C${col}\nالمنتج: ${product.product_number}\nالكمية: ${product.quantity}`;
+                
+                // إضافة event listener لعرض تفاصيل المنتج
+                cell.addEventListener('click', function() {
+                    showProductDetails(product, row, col);
+                });
+                
+                // إضافة cursor pointer للإشارة إلى أنه يمكن النقر
+                cell.style.cursor = 'pointer';
             } else {
                 // خلية فارغة
-                cell.innerHTML = `<div style="font-size: ${locationFontSize}; font-weight: bold; text-align: center;">${locationText}</div>`;
+                cell.style.background = '#f1f5f9';
+                cell.style.color = '#64748b';
+                cell.innerHTML = `
+                    <div style="display: flex; justify-content: center; align-items: center; height: 100%; width: 100%; padding: 2px; box-sizing: border-box;">
+                        <div style="font-size: ${locationFontSize}; font-weight: bold; text-align: center; color: #64748b;">${locationText}</div>
+                    </div>
+                `;
                 cell.title = `الموقع: R${row}C${col}\nموقع فارغ`;
             }
             
@@ -421,46 +443,73 @@ async function drawWarehouse(results) {
 
 
 // تمييز موقع معين
-function highlightLocation(x, y) {
+function highlightLocation(column, row) {
+    console.log('Highlighting location:', `R${row}C${column}`);
     const gridContainer = document.getElementById('warehouse-grid');
-    const isMobile = window.innerWidth <= 768;
+    
+    if (!gridContainer) {
+        console.error('Grid container not found!');
+        alert('يرجى عرض الخريطة أولاً');
+        return;
+    }
     
     // البحث عن الخلايا بشكل أفضل
     const cells = gridContainer.querySelectorAll('.warehouse-grid-cell');
     
-    cells.forEach(cell => {
+    let found = false;
+    
+    cells.forEach((cell, index) => {
         const cellText = cell.textContent || cell.innerHTML;
         const cellTitle = cell.title || '';
         
-        // البحث عن الموقع المطابق
-        if (cellText.includes(`R${y}C${x}`) || cellText.includes(`${y}-${x}`) || 
-            cellTitle.includes(`R${y}C${x}`)) {
+        // البحث عن الموقع المطابق - استخدام row و column
+        if (cellText.includes(`R${row}C${column}`) || cellTitle.includes(`R${row}C${column}`)) {
+            found = true;
+            console.log('Found cell at index:', index);
             
-            // تمييز الخلية
-            const originalBorderColor = cell.style.borderColor;
-            const originalBorderWidth = cell.style.borderWidth;
+            // حفظ الحالة الأصلية
+            const originalStyles = {
+                borderColor: cell.style.borderColor || getComputedStyle(cell).borderColor,
+                borderWidth: cell.style.borderWidth || getComputedStyle(cell).borderWidth,
+                boxShadow: cell.style.boxShadow || getComputedStyle(cell).boxShadow,
+                zIndex: cell.style.zIndex || getComputedStyle(cell).zIndex,
+                transform: cell.style.transform || getComputedStyle(cell).transform
+            };
             
-            cell.style.borderColor = '#ef4444';
-            cell.style.borderWidth = '4px';
-            cell.style.transition = 'all 0.3s';
-            cell.style.zIndex = '100';
+            // تطبيق التأثير الاصفر بشكل مباشر
+            cell.style.cssText += 'border: 6px solid #fbbf24 !important; box-shadow: 0 0 25px rgba(251, 191, 36, 1) !important; z-index: 1000 !important; transform: scale(1.2) !important; transition: all 0.3s ease !important;';
             
-            // إعادة الحالة الأصلية
+            console.log('Applied highlight effect');
+            
+            // إعادة الحالة الأصلية بعد 3 ثواني
             setTimeout(() => {
-                const bgColor = window.getComputedStyle(cell).backgroundColor;
-                if (bgColor.includes('34, 211, 153')) { // اللون الأخضر
-                    cell.style.borderColor = '#059669';
+                const bgColor = cell.style.background;
+                
+                if (bgColor && (bgColor.includes('#ef4444') || bgColor.includes('239, 68, 68'))) {
+                    // خلية تحتوي على منتج - لون أحمر
+                    cell.style.border = '3px solid #dc2626';
                 } else {
-                    cell.style.borderColor = originalBorderColor || '#e2e8f0';
+                    // خلية فارغة
+                    cell.style.border = '2px solid #e2e8f0';
                 }
-                cell.style.borderWidth = originalBorderWidth || '2px';
+                
+                cell.style.boxShadow = originalStyles.boxShadow;
                 cell.style.zIndex = '1';
+                cell.style.transform = 'scale(1)';
+                
+                console.log('Removed highlight effect');
             }, 3000);
             
             // التمرير للموقع
-            cell.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+            setTimeout(() => {
+                cell.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+            }, 100);
         }
     });
+    
+    if (!found) {
+        console.error('Cell not found for location:', `R${row}C${column}`);
+    }
 }
 
 // معالج المسح
@@ -527,7 +576,30 @@ async function confirmSelectedProducts() {
         return;
     }
     
-    if (!confirm(`هل تريد تأكيد أخذ ${selectedProducts.length} منتج؟`)) {
+    // التحقق من أن جميع المنتجات التي لها كميات مطلوبة قد تم تحديدها
+    const productsWithRequestedQty = currentResults.filter(p => 
+        p.found && p.requested_quantity && p.requested_quantity > 0
+    );
+    
+    if (productsWithRequestedQty.length > 0) {
+        const selectedNumbers = selectedProducts.map(p => p.number);
+        const missingProducts = productsWithRequestedQty.filter(p => 
+            !selectedNumbers.includes(p.product_number)
+        );
+        
+        if (missingProducts.length > 0) {
+            const missingNumbers = missingProducts.map(p => p.product_number).join(', ');
+            alert(`⚠️ يجب تحديد جميع المنتجات التي لها كميات مطلوبة!\n\nالمنتجات غير المحددة:\n${missingNumbers}\n\nالمنتجات غير المحددة سيتم تجاهلها ولن تتغير كميتها.`);
+            
+            // سؤال للمستخدم إذا كان يريد المتابعة
+            if (!confirm('هل تريد المتابعة مع المنتجات المحددة فقط؟\nالمنتجات غير المحددة ستبقى كميتها كما هي.')) {
+                return;
+            }
+        }
+    }
+    
+    // التحقق النهائي
+    if (!confirm(`هل تريد تأكيد أخذ ${selectedProducts.length} منتج؟\n\nالمنتجات المحددة: ${selectedProducts.map(p => p.number).join(', ')}`)) {
         return;
     }
     
@@ -543,7 +615,13 @@ async function confirmSelectedProducts() {
         const data = await response.json();
         
         if (data.success) {
-            alert('✓ تم خصم الكميات بنجاح');
+            // إظهار إشعار بالنجاح وحفظ الطلبية
+            if (data.order_number) {
+                alert('✓ تم خصم الكميات بنجاح\n📋 تم حفظ الطلبية في السجل\nرقم الطلبية: ' + data.order_number);
+            } else {
+                alert('✓ تم خصم الكميات بنجاح');
+            }
+            
             // إزالة المنتجات المأخوذة
             selectedProducts.forEach(product => {
                 const checkbox = document.getElementById(`product-${product.index}`);
@@ -918,3 +996,145 @@ function printLocations() {
     }, 500);
 }
 
+// عرض تفاصيل المنتج عند النقر على الخلية
+function showProductDetails(product, row, col) {
+    // إنشاء modal للتفاصيل
+    const modal = document.createElement('div');
+    modal.id = 'product-details-modal';
+    modal.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 10000;
+    `;
+    
+    // حساب الكمية المطلوبة والمتوفرة
+    const availableQty = product.quantity || 0;
+    const requestedQty = product.requested_quantity || 0;
+    const shortage = requestedQty - availableQty;
+    
+    // تحديد حالة التوفر
+    let statusIcon = '✅';
+    let statusText = 'متوفر';
+    let statusColor = '#10b981';
+    let bgColor = '#dcfce7';
+    let borderColor = '#22c55e';
+    
+    if (shortage > 0) {
+        statusIcon = '⚠️';
+        statusText = 'كمية غير كافية';
+        statusColor = '#f59e0b';
+        bgColor = '#fef3c7';
+        borderColor = '#fbbf24';
+    }
+    
+    if (!product.found) {
+        statusIcon = '❌';
+        statusText = 'غير موجود';
+        statusColor = '#ef4444';
+        bgColor = '#fee2e2';
+        borderColor = '#f87171';
+    }
+    
+    // محتوى Modal
+    modal.innerHTML = `
+        <div style="
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+            max-width: 500px;
+            width: 90%;
+            position: relative;
+            direction: rtl;
+        ">
+            <button onclick="this.closest('#product-details-modal').remove()" style="
+                position: absolute;
+                top: 15px;
+                left: 15px;
+                background: none;
+                border: none;
+                font-size: 24px;
+                cursor: pointer;
+                color: #64748b;
+            ">×</button>
+            
+            <h2 style="margin-bottom: 20px; color: #1e293b; text-align: center;">📦 تفاصيل المنتج</h2>
+            
+            <div style="margin-bottom: 15px;">
+                <div style="color: #64748b; font-size: 0.9rem; margin-bottom: 5px;">رقم المنتج</div>
+                <div style="font-size: 1.2rem; font-weight: bold; color: #1e293b; font-family: monospace;">${product.product_number}</div>
+            </div>
+            
+            ${product.name ? `
+            <div style="margin-bottom: 15px;">
+                <div style="color: #64748b; font-size: 0.9rem; margin-bottom: 5px;">اسم المنتج</div>
+                <div style="font-size: 1rem; color: #1e293b;">${product.name}</div>
+            </div>
+            ` : ''}
+            
+            <div style="margin-bottom: 15px;">
+                <div style="color: #64748b; font-size: 0.9rem; margin-bottom: 5px;">الموقع</div>
+                <div style="font-size: 1.1rem; font-weight: bold; color: #667eea; font-family: monospace;">R${row}C${col}</div>
+            </div>
+            
+            <div style="background: ${bgColor}; padding: 20px; border-radius: 8px; border-right: 4px solid ${borderColor}; margin: 20px 0;">
+                <div style="font-size: 1.1rem; font-weight: bold; margin-bottom: 15px; color: ${statusColor}; text-align: center;">
+                    ${statusIcon} ${statusText}
+                </div>
+                
+                <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                    <span style="color: #64748b;">الكمية المتوفرة:</span>
+                    <strong style="color: #059669; font-size: 1.1rem;">${availableQty} ${availableQty === 1 ? 'حبة' : 'حبات'}</strong>
+                </div>
+                
+                ${requestedQty > 0 ? `
+                <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                    <span style="color: #64748b;">الكمية المطلوبة:</span>
+                    <strong style="color: #1e293b; font-size: 1.1rem;">${requestedQty} ${requestedQty === 1 ? 'حبة' : 'حبات'}</strong>
+                </div>
+                
+                ${shortage > 0 ? `
+                <div style="display: flex; justify-content: space-between; padding-top: 10px; border-top: 2px solid ${borderColor};">
+                    <span style="color: ${statusColor}; font-weight: bold;">النقص:</span>
+                    <strong style="color: ${statusColor}; font-size: 1.2rem;">${shortage} ${shortage === 1 ? 'حبة' : 'حبات'}</strong>
+                </div>
+                ` : ''}
+                ` : ''}
+            </div>
+            
+            <div style="text-align: center; margin-top: 20px;">
+                <button onclick="this.closest('#product-details-modal').remove()" style="
+                    background: #667eea;
+                    color: white;
+                    border: none;
+                    padding: 12px 30px;
+                    border-radius: 8px;
+                    font-size: 1rem;
+                    font-weight: bold;
+                    cursor: pointer;
+                    transition: all 0.3s;
+                " onmouseover="this.style.background='#5568d3'" 
+                   onmouseout="this.style.background='#667eea'">
+                    إغلاق
+                </button>
+            </div>
+        </div>
+    `;
+    
+    // إغلاق عند النقر خارج Modal
+    modal.addEventListener('click', function(e) {
+        if (e.target === modal) {
+            modal.remove();
+        }
+    });
+    
+    // إضافة Modal إلى الصفحة
+    document.body.appendChild(modal);
+}

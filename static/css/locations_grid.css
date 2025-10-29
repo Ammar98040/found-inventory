@@ -14,11 +14,10 @@
     z-index: 10;
 }
 
-/* Wrapper خاص بالتمرير الأفقي - فقط لصفحة الأماكن */
+/* Wrapper خاص بالتمرير الأفقي والعمودي - فقط لصفحة الأماكن */
 .warehouse-grid-wrapper {
     width: 100%;
-    overflow-x: auto;
-    overflow-y: visible;
+    overflow: auto !important;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: thin;
     scrollbar-color: #cbd5e1 #f1f5f9;
@@ -50,10 +49,12 @@
 
 /* الشبكة - خاص بصفحة الأماكن */
 #warehouse-grid {
-    display: inline-block;
-    border: 2px solid #e2e8f0;
-    border-radius: 8px;
-    background: white;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 0 !important;
+    border: none;
+    border-radius: 0;
+    background: transparent;
     min-width: min-content;
     flex-shrink: 0;
     position: relative;
@@ -113,10 +114,11 @@
 }
 
 /* الـ rows - خاص بصفحة الأماكن */
-#warehouse-grid .grid-row {
+#warehouse-grid > div {
     display: flex !important;
     min-width: min-content;
     flex-shrink: 0;
+    width: 100%;
 }
 
 /* تحسينات للشاشات الصغيرة */

@@ -122,10 +122,27 @@ function updateInfoPanel() {
     document.getElementById('total-cells').textContent = totalCells;
 }
 
-// إضافة صف
-async function addRow() {
-    if (!confirm('هل تريد إضافة صف جديد؟')) return;
+// إضافة صف/صفوف متعددة
+async function addRowsBulk() {
+    console.log('addRowsBulk called');
+    const input = document.getElementById('rows-count-input');
+    if (!input) {
+        console.error('rows-count-input not found');
+        alert('لم يتم العثور على حقل إدخال عدد الصفوف');
+        return;
+    }
     
+    const count = parseInt(input.value) || 1;
+    console.log('count:', count);
+    
+    if (count < 1 || count > 50) {
+        alert('العدد يجب أن يكون بين 1 و 50');
+        return;
+    }
+    
+    if (!confirm(`هل تريد إضافة ${count} صف؟`)) return;
+    
+    console.log('Starting to add rows...');
     showLoading();
     
     try {
@@ -133,28 +150,42 @@ async function addRow() {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-            }
+            },
+            body: JSON.stringify({ count: count })
         });
         
         const data = await response.json();
         
         if (data.success) {
-            alert('تم إضافة الصف بنجاح!');
+            alert(`تم إضافة ${data.rows_added} صف بنجاح!\nالعدد الجديد للصفوف: ${data.new_rows_count}`);
             refreshGrid();
         } else {
             throw new Error(data.error || 'حدث خطأ');
         }
         
     } catch (error) {
-        showError('حدث خطأ أثناء إضافة الصف: ' + error.message);
+        showError('حدث خطأ أثناء إضافة الصفوف: ' + error.message);
     } finally {
         hideLoading();
     }
 }
 
-// إضافة عمود
-async function addColumn() {
-    if (!confirm('هل تريد إضافة عمود جديد؟')) return;
+// إضافة عمود/أعمدة متعددة
+async function addColumnsBulk() {
+    const input = document.getElementById('columns-count-input');
+    if (!input) {
+        alert('لم يتم العثور على حقل إدخال عدد الأعمدة');
+        return;
+    }
+    
+    const count = parseInt(input.value) || 1;
+    
+    if (count < 1 || count > 50) {
+        alert('العدد يجب أن يكون بين 1 و 50');
+        return;
+    }
+    
+    if (!confirm(`هل تريد إضافة ${count} عمود؟`)) return;
     
     showLoading();
     
@@ -163,28 +194,51 @@ async function addColumn() {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-            }
+            },
+            body: JSON.stringify({ count: count })
         });
         
         const data = await response.json();
         
         if (data.success) {
-            alert('تم إضافة العمود بنجاح!');
+            alert(`تم إضافة ${data.columns_added} عمود بنجاح!\nالعدد الجديد للأعمدة: ${data.new_columns_count}`);
             refreshGrid();
         } else {
             throw new Error(data.error || 'حدث خطأ');
         }
         
     } catch (error) {
-        showError('حدث خطأ أثناء إضافة العمود: ' + error.message);
+        showError('حدث خطأ أثناء إضافة الأعمدة: ' + error.message);
     } finally {
         hideLoading();
     }
 }
 
-// حذف آخر صف
-async function deleteLastRow() {
-    if (!confirm('هل تريد حذف آخر صف؟ سيتم حذف جميع المنتجات في هذا الصف!')) return;
+// للتوافق مع الكود القديم
+async function addRow() {
+    addRowsBulk();
+}
+
+async function addColumn() {
+    addColumnsBulk();
+}
+
+// حذف صف/صفوف متعددة
+async function deleteRowsBulk() {
+    const input = document.getElementById('rows-delete-input');
+    if (!input) {
+        alert('لم يتم العثور على حقل إدخال عدد الصفوف');
+        return;
+    }
+    
+    const count = parseInt(input.value) || 1;
+    
+    if (count < 1) {
+        alert('العدد يجب أن يكون أكبر من 0');
+        return;
+    }
+    
+    if (!confirm(`هل تريد حذف ${count} صف؟ سيتم حذف جميع المنتجات في هذه الصفوف!`)) return;
     
     showLoading();
     
@@ -192,30 +246,43 @@ async function deleteLastRow() {
         const response = await fetch('/api/delete-row/', {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
+                'Content-Type': 'application/json',
             },
-            body: `row=${currentGrid.rows}`
+            body: JSON.stringify({ count: count })
         });
         
         const data = await response.json();
         
         if (data.success) {
-            alert('تم حذف الصف بنجاح!');
+            alert(`تم حذف ${data.rows_deleted} صف بنجاح!\nالعدد الجديد للصفوف: ${data.new_rows_count}`);
             refreshGrid();
         } else {
             throw new Error(data.error || 'حدث خطأ');
         }
         
     } catch (error) {
-        showError('حدث خطأ أثناء حذف الصف: ' + error.message);
+        showError('حدث خطأ أثناء حذف الصفوف: ' + error.message);
     } finally {
         hideLoading();
     }
 }
 
-// حذف آخر عمود
-async function deleteLastColumn() {
-    if (!confirm('هل تريد حذف آخر عمود؟ سيتم حذف جميع المنتجات في هذا العمود!')) return;
+// حذف عمود/أعمدة متعددة
+async function deleteColumnsBulk() {
+    const input = document.getElementById('columns-delete-input');
+    if (!input) {
+        alert('لم يتم العثور على حقل إدخال عدد الأعمدة');
+        return;
+    }
+    
+    const count = parseInt(input.value) || 1;
+    
+    if (count < 1) {
+        alert('العدد يجب أن يكون أكبر من 0');
+        return;
+    }
+    
+    if (!confirm(`هل تريد حذف ${count} عمود؟ سيتم حذف جميع المنتجات في هذه الأعمدة!`)) return;
     
     showLoading();
     
@@ -223,47 +290,69 @@ async function deleteLastColumn() {
         const response = await fetch('/api/delete-column/', {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
+                'Content-Type': 'application/json',
             },
-            body: `column=${currentGrid.columns}`
+            body: JSON.stringify({ count: count })
         });
         
         const data = await response.json();
         
         if (data.success) {
-            alert('تم حذف العمود بنجاح!');
+            alert(`تم حذف ${data.columns_deleted} عمود بنجاح!\nالعدد الجديد للأعمدة: ${data.new_columns_count}`);
             refreshGrid();
         } else {
             throw new Error(data.error || 'حدث خطأ');
         }
         
     } catch (error) {
-        showError('حدث خطأ أثناء حذف العمود: ' + error.message);
+        showError('حدث خطأ أثناء حذف الأعمدة: ' + error.message);
     } finally {
         hideLoading();
     }
 }
 
+// للتوافق مع الكود القديم
+async function deleteLastRow() {
+    deleteRowsBulk();
+}
+
+async function deleteLastColumn() {
+    deleteColumnsBulk();
+}
+
 // إخفاء/إظهار العناصر
 function showLoading() {
-    document.getElementById('loading').style.display = 'block';
+    const loadingEl = document.getElementById('loading');
+    if (loadingEl) {
+        loadingEl.style.display = 'block';
+    }
 }
 
 function hideLoading() {
-    document.getElementById('loading').style.display = 'none';
+    const loadingEl = document.getElementById('loading');
+    if (loadingEl) {
+        loadingEl.style.display = 'none';
+    }
 }
 
 function showError(message) {
     const errorEl = document.getElementById('error-message');
-    errorEl.textContent = message;
-    errorEl.style.display = 'block';
-    
-    setTimeout(() => {
-        errorEl.style.display = 'none';
-    }, 5000);
+    if (errorEl) {
+        errorEl.textContent = message;
+        errorEl.style.display = 'block';
+        
+        setTimeout(() => {
+            errorEl.style.display = 'none';
+        }, 5000);
+    } else {
+        console.error('Error message element not found:', message);
+    }
 }
 
 function hideError() {
-    document.getElementById('error-message').style.display = 'none';
+    const errorEl = document.getElementById('error-message');
+    if (errorEl) {
+        errorEl.style.display = 'none';
+    }
 }
 

@@ -177,24 +177,54 @@
 
         <div class="management-panel">
             <h2>⚙️ إدارة الشبكة</h2>
-            <div class="btn-group">
-                <button onclick="addRow()" class="btn btn--sm btn--success">
-                    <span class="icon">➕</span>
-                    <span>إضافة صف</span>
-                </button>
-                <button onclick="addColumn()" class="btn btn--sm btn--success">
-                    <span class="icon">➕</span>
-                    <span>إضافة عمود</span>
-                </button>
-                <button onclick="deleteLastRow()" class="btn btn--sm btn--danger">
-                    <span class="icon">➖</span>
-                    <span>حذف آخر صف</span>
-                </button>
-                <button onclick="deleteLastColumn()" class="btn btn--sm btn--danger">
-                    <span class="icon">➖</span>
-                    <span>حذف آخر عمود</span>
-                </button>
+            
+            <!-- قسم الإضافة -->
+            <div style="margin-bottom: 20px;">
+                <h3 style="margin-bottom: 10px; color: #059669;">إضافة صفوف/أعمدة</h3>
+                <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                    <label style="font-weight: bold;">عدد الصفوف:</label>
+                    <input type="number" id="rows-count-input" value="1" min="1" max="50" 
+                           style="padding: 8px; border: 2px solid #e2e8f0; border-radius: 6px; width: 60px; text-align: center;">
+                    <button onclick="addRowsBulk()" class="btn btn--sm btn--success">
+                        <span class="icon">➕</span>
+                        <span>إضافة صفوف</span>
+                    </button>
+                </div>
+                <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 10px;">
+                    <label style="font-weight: bold;">عدد الأعمدة:</label>
+                    <input type="number" id="columns-count-input" value="1" min="1" max="50" 
+                           style="padding: 8px; border: 2px solid #e2e8f0; border-radius: 6px; width: 60px; text-align: center;">
+                    <button onclick="addColumnsBulk()" class="btn btn--sm btn--success">
+                        <span class="icon">➕</span>
+                        <span>إضافة أعمدة</span>
+                    </button>
+                </div>
             </div>
+            
+            <!-- قسم الحذف -->
+            <div style="margin-bottom: 20px; padding-top: 20px; border-top: 2px solid #e2e8f0;">
+                <h3 style="margin-bottom: 10px; color: #ef4444;">حذف صفوف/أعمدة</h3>
+                <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                    <label style="font-weight: bold;">عدد الصفوف:</label>
+                    <input type="number" id="rows-delete-input" value="1" min="1" 
+                           style="padding: 8px; border: 2px solid #e2e8f0; border-radius: 6px; width: 60px; text-align: center;">
+                    <button onclick="deleteRowsBulk()" class="btn btn--sm btn--danger">
+                        <span class="icon">➖</span>
+                        <span>حذف صفوف</span>
+                    </button>
+                </div>
+                <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 10px;">
+                    <label style="font-weight: bold;">عدد الأعمدة:</label>
+                    <input type="number" id="columns-delete-input" value="1" min="1" 
+                           style="padding: 8px; border: 2px solid #e2e8f0; border-radius: 6px; width: 60px; text-align: center;">
+                    <button onclick="deleteColumnsBulk()" class="btn btn--sm btn--danger">
+                        <span class="icon">➖</span>
+                        <span>حذف أعمدة</span>
+                    </button>
+                </div>
+            </div>
+            
+            <!-- زر التحديث -->
             <button onclick="refreshGrid()" class="btn btn--sm btn--info" style="width: 100%; margin-top: 10px;">
                 <span class="icon">🔄</span>
                 <span>تحديث الشبكة</span>

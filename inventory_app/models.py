@@ -172,3 +172,31 @@ class DailyReportArchive(models.Model):
     def __str__(self):
         return f"تقرير {self.report_date}"
 
+
+class Order(models.Model):
+    """نموذج لحفظ الطلبيات المسحوبة"""
+    order_number = models.CharField(max_length=50, unique=True, verbose_name='رقم الطلبية', db_index=True)
+    
+    # معلومات الطلبية
+    products_data = models.JSONField(verbose_name='بيانات المنتجات', default=list)
+    total_products = models.IntegerField(default=0, verbose_name='عدد المنتجات')
+    total_quantities = models.IntegerField(default=0, verbose_name='إجمالي الكميات المسحوبة')
+    
+    # معلومات إضافية
+    notes = models.TextField(blank=True, null=True, verbose_name='ملاحظات')
+    user = models.CharField(max_length=100, blank=True, default='System', verbose_name='المستخدم')
+    
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='تاريخ الإنشاء')
+    
+    class Meta:
+        verbose_name = 'طلب مسحوب'
+        verbose_name_plural = 'الطلبات المسحوبة'
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['-created_at']),
+            models.Index(fields=['order_number']),
+        ]
+    
+    def __str__(self):
+        return f"طلب {self.order_number} - {self.created_at.strftime('%Y-%m-%d %H:%M')}"
+

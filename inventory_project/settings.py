@@ -157,6 +157,3 @@ SESSION_ENGINE = 'django.contrib.sessions.backends.cached_db'
 # Query performance optimizations
 DATABASES['default']['ATOMIC_REQUESTS'] = True
 
-# Query timeout setting for database operations
-DATABASES['default']['OPTIONS']['options'] = '-c statement_timeout=30000'  # 30 seconds query timeout
-

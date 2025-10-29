@@ -5,7 +5,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 from django.db import transaction
 from django.db import models as db_models
-from .models import Product, Location, Warehouse, AuditLog, DailyReportArchive
+from .models import Product, Location, Warehouse, AuditLog, DailyReportArchive, Order
 import json
 from django.core import serializers
 from datetime import datetime
@@ -78,11 +78,34 @@ def confirm_products(request):
                         'error': f'الكمية غير كافية للمنتج {product_number}'
                     })
             
-            return JsonResponse({
-                'success': True,
-                'updated_products': updated_products,
-                'message': f'تم خصم {len(updated_products)} منتج'
-            })
+            # حفظ الطلبية في السجل
+            if updated_products:
+                from datetime import datetime
+                import random
+                import string
+                
+                # إنشاء رقم طلبية فريد
+                order_number = f"ORD-{datetime.now().strftime('%Y%m%d%H%M%S')}-{''.join(random.choices(string.ascii_uppercase + string.digits, k=4))}"
+                
+                # حساب الإجماليات
+                total_products = len(updated_products)
+                total_quantities = sum(p['quantity_taken'] for p in updated_products)
+                
+                # حفظ الطلبية
+                order = Order.objects.create(
+                    order_number=order_number,
+                    products_data=updated_products,
+                    total_products=total_products,
+                    total_quantities=total_quantities,
+                    user=request.user.username if request.user.is_authenticated else 'Guest'
+                )
+                
+                return JsonResponse({
+                    'success': True,
+                    'updated_products': updated_products,
+                    'message': f'تم خصم {len(updated_products)} منتج',
+                    'order_number': order_number
+                })
             
         except Exception as e:
             return JsonResponse({
@@ -211,24 +234,37 @@ def get_warehouse_grid(request):
 @require_http_methods(["POST"])
 @csrf_exempt
 def add_row(request):
-    """إضافة صف جديد"""
+    """إضافة صف/صفوف جديدة"""
     warehouse = Warehouse.objects.first()
     if not warehouse:
         return JsonResponse({'error': 'لا يوجد مستودع'}, status=404)
     
     try:
+        data = json.loads(request.body)
+        count = int(data.get('count', 1))  # عدد الصفوف المراد إضافتها
+        
+        if count < 1 or count > 50:
+            return JsonResponse({'error': 'العدد يجب أن يكون بين 1 و 50'}, status=400)
+        
         with transaction.atomic():
-            warehouse.rows_count += 1
-            warehouse.save()
+            rows_added = 0
+            for _ in range(count):
+                warehouse.rows_count += 1
+                warehouse.save()
+                
+                for col in range(1, warehouse.columns_count + 1):
+                    Location.objects.create(
+                        warehouse=warehouse,
+                        row=warehouse.rows_count,
+                        column=col
+                    )
+                rows_added += 1
             
-            for col in range(1, warehouse.columns_count + 1):
-                Location.objects.create(
-                    warehouse=warehouse,
-                    row=warehouse.rows_count,
-                    column=col
-                )
-            
-            return JsonResponse({'success': True, 'new_rows_count': warehouse.rows_count})
+            return JsonResponse({
+                'success': True,
+                'new_rows_count': warehouse.rows_count,
+                'rows_added': rows_added
+            })
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=400)
 
@@ -236,24 +272,37 @@ def add_row(request):
 @require_http_methods(["POST"])
 @csrf_exempt
 def add_column(request):
-    """إضافة عمود جديد"""
+    """إضافة عمود/أعمدة جديدة"""
     warehouse = Warehouse.objects.first()
     if not warehouse:
         return JsonResponse({'error': 'لا يوجد مستودع'}, status=404)
     
     try:
+        data = json.loads(request.body)
+        count = int(data.get('count', 1))  # عدد الأعمدة المراد إضافتها
+        
+        if count < 1 or count > 50:
+            return JsonResponse({'error': 'العدد يجب أن يكون بين 1 و 50'}, status=400)
+        
         with transaction.atomic():
-            warehouse.columns_count += 1
-            warehouse.save()
+            columns_added = 0
+            for _ in range(count):
+                warehouse.columns_count += 1
+                warehouse.save()
+                
+                for row in range(1, warehouse.rows_count + 1):
+                    Location.objects.create(
+                        warehouse=warehouse,
+                        row=row,
+                        column=warehouse.columns_count
+                    )
+                columns_added += 1
             
-            for row in range(1, warehouse.rows_count + 1):
-                Location.objects.create(
-                    warehouse=warehouse,
-                    row=row,
-                    column=warehouse.columns_count
-                )
-            
-            return JsonResponse({'success': True, 'new_columns_count': warehouse.columns_count})
+            return JsonResponse({
+                'success': True,
+                'new_columns_count': warehouse.columns_count,
+                'columns_added': columns_added
+            })
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=400)
 
@@ -261,20 +310,35 @@ def add_column(request):
 @require_http_methods(["POST"])
 @csrf_exempt
 def delete_row(request):
-    """حذف صف"""
+    """حذف صف/صفوف"""
     warehouse = Warehouse.objects.first()
     if not warehouse:
         return JsonResponse({'error': 'لا يوجد مستودع'}, status=404)
     
     try:
-        row_num = int(request.POST.get('row'))
+        data = json.loads(request.body)
+        count = int(data.get('count', 1))  # عدد الصفوف المراد حذفها
+        
+        if count < 1 or count > warehouse.rows_count:
+            return JsonResponse({'error': f'العدد يجب أن يكون بين 1 و {warehouse.rows_count}'}, status=400)
         
         with transaction.atomic():
-            Location.objects.filter(warehouse=warehouse, row=row_num).delete()
-            warehouse.rows_count -= 1
-            warehouse.save()
+            rows_deleted = 0
+            for _ in range(count):
+                if warehouse.rows_count > 0:
+                    # حذف آخر صف
+                    Location.objects.filter(warehouse=warehouse, row=warehouse.rows_count).delete()
+                    warehouse.rows_count -= 1
+                    warehouse.save()
+                    rows_deleted += 1
+                else:
+                    break
             
-            return JsonResponse({'success': True, 'new_rows_count': warehouse.rows_count})
+            return JsonResponse({
+                'success': True,
+                'new_rows_count': warehouse.rows_count,
+                'rows_deleted': rows_deleted
+            })
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=400)
 
@@ -282,20 +346,35 @@ def delete_row(request):
 @require_http_methods(["POST"])
 @csrf_exempt
 def delete_column(request):
-    """حذف عمود"""
+    """حذف عمود/أعمدة"""
     warehouse = Warehouse.objects.first()
     if not warehouse:
         return JsonResponse({'error': 'لا يوجد مستودع'}, status=404)
     
     try:
-        col_num = int(request.POST.get('column'))
+        data = json.loads(request.body)
+        count = int(data.get('count', 1))  # عدد الأعمدة المراد حذفها
+        
+        if count < 1 or count > warehouse.columns_count:
+            return JsonResponse({'error': f'العدد يجب أن يكون بين 1 و {warehouse.columns_count}'}, status=400)
         
         with transaction.atomic():
-            Location.objects.filter(warehouse=warehouse, column=col_num).delete()
-            warehouse.columns_count -= 1
-            warehouse.save()
+            columns_deleted = 0
+            for _ in range(count):
+                if warehouse.columns_count > 0:
+                    # حذف آخر عمود
+                    Location.objects.filter(warehouse=warehouse, column=warehouse.columns_count).delete()
+                    warehouse.columns_count -= 1
+                    warehouse.save()
+                    columns_deleted += 1
+                else:
+                    break
             
-            return JsonResponse({'success': True, 'new_columns_count': warehouse.columns_count})
+            return JsonResponse({
+                'success': True,
+                'new_columns_count': warehouse.columns_count,
+                'columns_deleted': columns_deleted
+            })
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=400)
 
@@ -321,6 +400,9 @@ def products_list(request):
     # Optimize query with select_related to avoid N+1 queries
     products = Product.objects.select_related('location').all().order_by('product_number')
     
+    # احسب العدد الإجمالي قبل أي فلترة
+    total_count = products.count()
+    
     search = request.GET.get('search', '')
     if search:
         products = products.filter(
@@ -328,6 +410,9 @@ def products_list(request):
         ) | products.filter(
             name__icontains=search
         )
+    
+    # احسب العدد بعد الفلترة (إذا كان هناك بحث)
+    filtered_count = products.count() if search else total_count
     
     # Add pagination for performance
     from django.core.paginator import Paginator
@@ -338,7 +423,9 @@ def products_list(request):
     return render(request, 'inventory_app/products_list.html', {
         'products': page_obj,
         'page_obj': page_obj,
-        'search': search
+        'search': search,
+        'total_count': total_count,
+        'filtered_count': filtered_count
     })
 
 
@@ -470,6 +557,23 @@ def assign_location_to_product(request, product_id):
     product = get_object_or_404(Product.objects.select_related('location'), id=product_id)
     warehouse = Warehouse.objects.first()
     
+    # إنشاء جميع المواقع المفقودة
+    if warehouse:
+        locations_created = 0
+        with transaction.atomic():
+            for row in range(1, warehouse.rows_count + 1):
+                for col in range(1, warehouse.columns_count + 1):
+                    location, created = Location.objects.get_or_create(
+                        warehouse=warehouse,
+                        row=row,
+                        column=col,
+                        defaults={
+                            'is_active': True
+                        }
+                    )
+                    if created:
+                        locations_created += 1
+    
     if request.method == 'POST':
         location_id = request.POST.get('location')
         if location_id:
@@ -558,21 +662,44 @@ def warehouse_detail(request, warehouse_id):
 def locations_list(request):
     """قائمة جميع الأماكن"""
     warehouse = Warehouse.objects.first()
-    # Optimize with prefetch_related and select_related
-    locations = Location.objects.filter(warehouse=warehouse).select_related('warehouse').prefetch_related('products').order_by('row', 'column')
     
+    if warehouse:
+        # إنشاء جميع المواقع المفقودة
+        locations_created = 0
+        with transaction.atomic():
+            for row in range(1, warehouse.rows_count + 1):
+                for col in range(1, warehouse.columns_count + 1):
+                    location, created = Location.objects.get_or_create(
+                        warehouse=warehouse,
+                        row=row,
+                        column=col,
+                        defaults={
+                            'is_active': True
+                        }
+                    )
+                    if created:
+                        locations_created += 1
+        
+        if locations_created > 0:
+            print(f'Created {locations_created} missing locations')
+    
+    # Optimize with prefetch_related and select_related
+    # الحصول على جميع المواقع للشبكة (بدون pagination)
+    all_locations = Location.objects.filter(warehouse=warehouse).select_related('warehouse').prefetch_related('products').order_by('row', 'column')
+    
+    # للحصول على paginated locations للقائمة (إن وجدت في المستقبل)
     search = request.GET.get('search', '')
     if search:
-        locations = locations.filter(notes__icontains=search)
+        all_locations = all_locations.filter(notes__icontains=search)
     
     # Add pagination
     from django.core.paginator import Paginator
-    paginator = Paginator(locations, 100)  # Show 100 locations per page
+    paginator = Paginator(all_locations, 100)  # Show 100 locations per page
     page_number = request.GET.get('page', 1)
     page_obj = paginator.get_page(page_number)
     
     return render(request, 'inventory_app/locations_list.html', {
-        'locations': page_obj,
+        'locations': all_locations,  # تمرير جميع المواقع للشبكة
         'page_obj': page_obj,
         'warehouse': warehouse,
         'search': search
@@ -736,6 +863,167 @@ def audit_logs(request):
 
 
 # ========== تصدير البيانات ==========
+
+def export_products_pdf(request):
+    """تصدير قائمة المنتجات إلى PDF احترافي مع دعم كامل للعربية باستخدام Playwright"""
+    from django.http import HttpResponse
+    from playwright.sync_api import sync_playwright
+    from datetime import datetime
+    import io
+    
+    try:
+        # جلب المنتجات
+        products = Product.objects.select_related('location').all().order_by('product_number')
+        
+        # تاريخ التقرير
+        now = datetime.now()
+        
+        # إنشاء HTML محتوى
+        html_content = f'''
+<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        * {{
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }}
+        
+        body {{
+            font-family: 'Segoe UI', 'Arial', 'Tahoma', sans-serif;
+            font-size: 10pt;
+            direction: rtl;
+            padding: 20px;
+        }}
+        
+        .header {{
+            text-align: center;
+            color: #667eea;
+            font-size: 28pt;
+            font-weight: bold;
+            margin-bottom: 20px;
+        }}
+        
+        .info {{
+            text-align: center;
+            margin-bottom: 20px;
+            font-size: 11pt;
+            color: #374151;
+        }}
+        
+        table {{
+            width: 100%;
+            border-collapse: collapse;
+            margin: 0 auto;
+        }}
+        
+        th {{
+            background-color: #667eea;
+            color: white;
+            padding: 12px 8px;
+            text-align: right;
+            font-weight: bold;
+            border: 1px solid #555;
+            font-size: 11pt;
+        }}
+        
+        td {{
+            padding: 8px;
+            border: 1px solid #ddd;
+            text-align: right;
+            font-size: 9pt;
+        }}
+        
+        tr:nth-child(even) {{
+            background-color: #f8fafc;
+        }}
+        
+        .summary {{
+            margin-top: 20px;
+            text-align: right;
+            font-weight: bold;
+            font-size: 12pt;
+            color: #374151;
+        }}
+    </style>
+</head>
+<body>
+    <div class="header">قائمة المنتجات</div>
+    
+    <div class="info">
+        <strong>التاريخ:</strong> {now.strftime("%Y-%m-%d")} | 
+        <strong>الوقت:</strong> {now.strftime("%H:%M")}
+    </div>
+    
+    <table>
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>رقم المنتج</th>
+                <th>الاسم</th>
+                <th>الفئة</th>
+                <th>الكمية</th>
+                <th>الموقع</th>
+            </tr>
+        </thead>
+        <tbody>
+'''
+        
+        # إضافة صفوف المنتجات
+        for idx, product in enumerate(products, start=1):
+            location = product.location.full_location if product.location else 'بدون موقع'
+            category = product.category if product.category else '-'
+            
+            html_content += f'''
+            <tr>
+                <td>{idx}</td>
+                <td>{product.product_number}</td>
+                <td>{product.name}</td>
+                <td>{category}</td>
+                <td>{product.quantity}</td>
+                <td>{location}</td>
+            </tr>
+            '''
+        
+        # إغلاق HTML
+        html_content += f'''
+        </tbody>
+    </table>
+    
+    <div class="summary">
+        إجمالي المنتجات: {products.count()}
+    </div>
+</body>
+</html>
+'''
+        
+        # إنشاء PDF باستخدام Playwright
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=True)
+            page = browser.new_page()
+            page.set_content(html_content)
+            
+            pdf_bytes = page.pdf(
+                format='A4',
+                landscape=True,
+                margin={'top': '1cm', 'right': '1cm', 'bottom': '1cm', 'left': '1cm'}
+            )
+            
+            browser.close()
+        
+        # إرجاع الاستجابة
+        response = HttpResponse(pdf_bytes, content_type='application/pdf')
+        response['Content-Disposition'] = 'attachment; filename="products_list.pdf"'
+        
+        return response
+        
+    except Exception as e:
+        import traceback
+        error_msg = f'خطأ في إنشاء PDF: {str(e)}\n{traceback.format_exc()}'
+        return HttpResponse(error_msg, content_type='text/plain')
+
 
 def export_products_excel(request):
     """تصدير قائمة المنتجات إلى Excel"""
@@ -942,27 +1230,64 @@ def _auto_save_daily_reports():
 
 
 def convert_to_hijri(gregorian_date):
-    """تحويل التاريخ الميلادي إلى هجري"""
+    """تحويل التاريخ الميلادي إلى هجري باستخدام حساب أدق"""
     try:
         from datetime import datetime
-        # حساب التاريخ الهجري بطريقة تقريبية
-        hijri_epoch = datetime(622, 7, 16)  # بداية التقويم الهجري
-        days_diff = (gregorian_date - hijri_epoch.date()).days
-        hijri_year = 1 + days_diff // 354  # السنة الهجرية حوالي 354 يوماً
+        import math
         
-        # شهر تقريبي
-        remaining_days = days_diff % 354
-        hijri_month = (remaining_days // 30) + 1
-        hijri_day = remaining_days % 30
+        # التاريخ المرجعي: 16 يوليو 622 ميلادي = 1 محرم 1 هجري
+        gregorian_start = datetime(622, 7, 16)
+        hijri_start = 1  # سنة 1 هجري
         
-        hijri_months = ['محرم', 'صفر', 'ربيع الأول', 'ربيع الآخر', 'جمادى الأولى', 
-                       'جمادى الآخرة', 'رجب', 'شعبان', 'رمضان', 'شوال', 'ذو القعدة', 'ذو الحجة']
+        # حساب الفرق بالأيام
+        date_obj = datetime(gregorian_date.year, gregorian_date.month, gregorian_date.day)
+        days_diff = (date_obj - gregorian_start).days
         
-        month_name = hijri_months[min(hijri_month - 1, 11)]
+        # حساب السنة الهجرية (السنة الهجرية = 354.37 يوم في المتوسط)
+        # مع تعديل أدق
+        hijri_year = 1 + int(days_diff / 354.367)
         
-        return f"{hijri_day} {month_name} {hijri_year}"
-    except:
-        return f"تحويل التاريخ غير متاح"
+        # حساب الأيام المتبقية منذ بداية السنة
+        days_from_start_of_year = days_diff % 354
+        
+        # أشهر السنة الهجرية مع عدد أيامها (تقريبي)
+        hijri_months = [
+            ('محرم', 30), ('صفر', 29), ('ربيع الأول', 30), ('ربيع الآخر', 29),
+            ('جمادى الأولى', 30), ('جمادى الآخرة', 29), ('رجب', 30), ('شعبان', 29),
+            ('رمضان', 30), ('شوال', 29), ('ذو القعدة', 30), ('ذو الحجة', 29)
+        ]
+        
+        # حساب الشهر واليوم
+        remaining_days = days_from_start_of_year
+        hijri_month = 1
+        hijri_day = 1
+        
+        for month_name, month_days in hijri_months:
+            if remaining_days < month_days:
+                hijri_day = remaining_days + 1
+                break
+            remaining_days -= month_days
+            hijri_month += 1
+        
+        # ضمان أن الشهر ضمن النطاق الصحيح
+        if hijri_month > 12:
+            hijri_month = 12
+            hijri_day = min(hijri_day, 29)
+        
+        month_name = hijri_months[hijri_month - 1][0]
+        
+        # حساب السنة الهجرية بدقة أكبر باستخدام سنة كبيسة
+        # السنة الهجرية الكبيسة لها 355 يوماً (3 سنوات في كل 8)
+        leap_days = int(hijri_year / 30) * 11  # كل 30 سنة = 11 يوم إضافي
+        adjusted_days = days_diff - leap_days
+        
+        # إعادة حساب السنة
+        final_year = int(adjusted_days / 354.367) + 1
+        
+        return f"{hijri_day} {month_name} {final_year} هـ"
+    except Exception as e:
+        # في حالة الخطأ، رجع التاريخ الميلادي
+        return f"{gregorian_date.strftime('%Y-%m-%d')}"
 
 
 def save_daily_report(request):
@@ -1324,4 +1649,40 @@ def delete_data(request):
             'success': False,
             'error': str(e)
         })
+
+
+def orders_list(request):
+    """عرض قائمة الطلبات المسحوبة"""
+    orders = Order.objects.all()
+    return render(request, 'inventory_app/orders_list.html', {
+        'orders': orders
+    })
+
+
+def order_detail(request, order_id):
+    """عرض تفاصيل طلبية محددة"""
+    order = get_object_or_404(Order, id=order_id)
+    return render(request, 'inventory_app/order_detail.html', {
+        'order': order
+    })
+
+
+@csrf_exempt
+def delete_order(request, order_id):
+    """حذف طلبية محددة"""
+    if request.method == 'DELETE':
+        try:
+            order = get_object_or_404(Order, id=order_id)
+            order_number = order.order_number
+            order.delete()
+            return JsonResponse({
+                'success': True,
+                'message': f'تم حذف الطلبية {order_number}'
+            })
+        except Exception as e:
+            return JsonResponse({
+                'success': False,
+                'error': str(e)
+            })
+    return JsonResponse({'error': 'Invalid request method'}, status=400)
 

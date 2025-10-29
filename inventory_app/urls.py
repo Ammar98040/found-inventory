@@ -35,6 +35,7 @@ urlpatterns = [
     
     # تصدير البيانات
     path('export/products/excel/', views.export_products_excel, name='export_products_excel'),
+    path('export/products/pdf/', views.export_products_pdf, name='export_products_pdf'),
     
     # إدارة المستودعات
     path('warehouses/', views.warehouses_list, name='warehouses_list'),
@@ -61,5 +62,10 @@ urlpatterns = [
     # حذف البيانات
     path('data-deletion/', views.data_deletion_page, name='data_deletion'),
     path('api/delete-data/', views.delete_data, name='delete_data'),
+    
+    # إدارة الطلبات المسحوبة
+    path('orders/', views.orders_list, name='orders_list'),
+    path('orders/<int:order_id>/', views.order_detail, name='order_detail'),
+    path('api/delete-order/<int:order_id>/', views.delete_order, name='delete_order'),
 ]
 

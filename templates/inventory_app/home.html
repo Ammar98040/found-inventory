@@ -49,20 +49,26 @@
                     <span class="btn-icon">🗑️</span>
                     مسح
                 </button>
+                <a href="/orders/" class="btn btn-primary" style="background: #667eea;">
+                    <span class="btn-icon">📋</span>
+                    سجل الطلبات
+                </a>
             </div>
 
             <!-- قسم النتائج -->
             <div id="results-section" class="results-section" style="display: none;">
                 <div class="results-header">
                     <h2>📦 نتائج البحث</h2>
-                    <div style="display: flex; gap: 10px; align-items: center;">
+                    <div class="results-actions">
                         <span id="results-count" class="badge"></span>
-                        <button onclick="exportToPDF()" class="btn btn-primary" id="pdf-btn" style="background: #ef4444;">
-                            📄 تصدير PDF
-                        </button>
-                        <button onclick="printLocations()" class="btn btn-success" id="print-btn" style="background: #10b981;">
-                            🖨️ طباعة
-                        </button>
+                        <div class="action-buttons">
+                            <button onclick="exportToPDF()" class="btn btn-pdf" id="pdf-btn">
+                                📄 PDF
+                            </button>
+                            <button onclick="printLocations()" class="btn btn-print" id="print-btn">
+                                🖨️ طباعة
+                            </button>
+                        </div>
                     </div>
                 </div>
                 <div id="results-container"></div>
@@ -142,6 +148,10 @@
             
             <div class="sidebar-section">
                 <div class="sidebar-title">السجلات</div>
+                <a href="/orders/" class="sidebar-link">
+                    <span class="icon">📦</span>
+                    <span class="text">الطلبات المسحوبة</span>
+                </a>
                 <a href="/audit-logs/" class="sidebar-link">
                     <span class="icon">📋</span>
                     <span class="text">سجلات العمليات</span>

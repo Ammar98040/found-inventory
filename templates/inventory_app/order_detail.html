@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>تفاصيل الطلبية {{ order.order_number }}</title>
+    {% load static %}
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    
+    <style>
+        .order-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+        
+        .order-info {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: var(--shadow-lg);
+            margin-bottom: 30px;
+        }
+        
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 15px 0;
+            border-bottom: 1px solid #f1f5f9;
+        }
+        
+        .info-row:last-child {
+            border-bottom: none;
+        }
+        
+        .info-label {
+            color: #64748b;
+            font-weight: 600;
+        }
+        
+        .info-value {
+            color: #1e293b;
+            font-weight: bold;
+        }
+        
+        .products-table {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: var(--shadow-lg);
+            overflow-x: auto;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        th, td {
+            padding: 12px;
+            text-align: right;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        
+        th {
+            background: #f8fafc;
+            font-weight: bold;
+            color: #1e293b;
+        }
+        
+        @media (max-width: 768px) {
+            .order-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            
+            .info-row {
+                flex-direction: column;
+                gap: 5px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="order-header">
+            <h1>📋 تفاصيل الطلبية: {{ order.order_number }}</h1>
+            <div>
+                <a href="/orders/" class="btn btn-secondary">
+                    <span class="btn-icon">←</span>
+                    العودة
+                </a>
+            </div>
+        </div>
+        
+        <div class="order-info">
+            <div class="info-row">
+                <span class="info-label">رقم الطلبية:</span>
+                <span class="info-value" style="font-family: monospace;">{{ order.order_number }}</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">عدد المنتجات:</span>
+                <span class="info-value">{{ order.total_products }} منتج</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">إجمالي الكميات المسحوبة:</span>
+                <span class="info-value">{{ order.total_quantities }} حبة</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">تاريخ وساعة السحب:</span>
+                <span class="info-value">{{ order.created_at|date:"Y-m-d H:i" }}</span>
+            </div>
+            {% if order.notes %}
+            <div class="info-row">
+                <span class="info-label">ملاحظات:</span>
+                <span class="info-value">{{ order.notes }}</span>
+            </div>
+            {% endif %}
+        </div>
+        
+        <div class="products-table">
+            <h2 style="margin-bottom: 20px;">المنتجات في هذه الطلبية:</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>رقم المنتج</th>
+                        <th>الكمية المسحوبة</th>
+                        <th>الكمية قبل</th>
+                        <th>الكمية بعد</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for product in order.products_data %}
+                    <tr>
+                        <td>{{ forloop.counter }}</td>
+                        <td><strong>{{ product.product_number }}</strong></td>
+                        <td>{{ product.quantity_taken }}</td>
+                        <td>{{ product.old_quantity }}</td>
+                        <td>{{ product.new_quantity }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</body>
+</html>
