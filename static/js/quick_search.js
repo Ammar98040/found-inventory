@@ -7,6 +7,10 @@ function toggleQuickSearch() {
     const overlay = document.getElementById('quick-search-overlay');
     const input = document.getElementById('quick-search-input');
     
+    if (!overlay || !input) {
+        return;
+    }
+    
     quickSearchOpen = !quickSearchOpen;
     
     if (quickSearchOpen) {
@@ -38,11 +42,13 @@ document.addEventListener('keydown', function(e) {
 document.addEventListener('DOMContentLoaded', function() {
     const overlay = document.getElementById('quick-search-overlay');
     
-    overlay.addEventListener('click', function(e) {
-        if (e.target === overlay) {
-            toggleQuickSearch();
-        }
-    });
+    if (overlay) {
+        overlay.addEventListener('click', function(e) {
+            if (e.target === overlay) {
+                toggleQuickSearch();
+            }
+        });
+    }
 });
 
 // البحث في المنتجات والمواقع

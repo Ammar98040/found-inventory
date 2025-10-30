@@ -32,6 +32,8 @@ urlpatterns = [
     path('products/<int:product_id>/edit/', views.product_edit, name='product_edit'),
     path('products/<int:product_id>/delete/', views.product_delete, name='product_delete'),
     path('products/<int:product_id>/assign/', views.assign_location_to_product, name='assign_location'),
+    path('products/<int:product_id>/move/', views.move_product_with_shift, name='move_product_with_shift'),
+    path('api/delete-products-bulk/', views.delete_products_bulk, name='delete_products_bulk'),
     
     # تصدير البيانات
     path('export/products/excel/', views.export_products_excel, name='export_products_excel'),

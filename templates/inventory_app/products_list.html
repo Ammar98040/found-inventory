@@ -179,14 +179,6 @@
                     </div>
                 </div>
                 {% endif %}
-                <div style="text-align: center;">
-                    <div style="font-size: 2.5rem; font-weight: bold; margin-bottom: 5px;">
-                        📃 {{ page_obj.paginator.num_pages }}
-                    </div>
-                    <div style="font-size: 1rem; opacity: 0.9;">
-                        عدد الصفحات
-                    </div>
-                </div>
             </div>
         </div>
 
@@ -197,6 +189,9 @@
                     <table>
                     <thead>
                         <tr>
+                            <th style="width: 50px;">
+                                <input type="checkbox" id="select-all" onchange="toggleSelectAll()">
+                            </th>
                             <th>رقم المنتج</th>
                             <th>الاسم</th>
                             <th>الفئة</th>
@@ -208,6 +203,9 @@
                     <tbody>
                         {% for product in products %}
                             <tr>
+                                <td>
+                                    <input type="checkbox" class="product-checkbox" value="{{ product.id }}">
+                                </td>
                                 <td><strong>{{ product.product_number }}</strong></td>
                                 <td>{{ product.name }}</td>
                                 <td>{{ product.category|default:"-" }}</td>
@@ -226,6 +224,7 @@
                                         <a href="/products/{{ product.id }}/" class="btn btn--xs btn--info"><span class="icon">👁️</span><span>عرض</span></a>
                                         <a href="/products/{{ product.id }}/edit/" class="btn btn--xs btn--primary"><span class="icon">✏️</span><span>تعديل</span></a>
                                         <a href="/products/{{ product.id }}/assign/" class="btn btn--xs btn--success"><span class="icon">📍</span><span>ربط</span></a>
+                                        <button onclick="deleteProduct({{ product.id }}, '{{ product.product_number }}')" class="btn btn--xs btn--danger"><span class="icon">🗑️</span><span>حذف</span></button>
                                     </div>
                                 </td>
                             </tr>
@@ -234,9 +233,15 @@
                     </table>
                 </div>
                 
-                <p style="text-align: center; margin-top: 20px; color: var(--text-secondary);">
-                    إجمالي المنتجات: {{ products.count }}
-                </p>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 20px; padding-top: 20px; border-top: 2px solid var(--border-color);">
+                    <p style="color: var(--text-secondary); margin: 0;">
+                        إجمالي المنتجات: {{ products.count }}
+                    </p>
+                    <button onclick="deleteSelectedProducts()" class="btn btn--sm btn--danger" style="display: none;" id="delete-selected-btn">
+                        <span class="icon">🗑️</span>
+                        <span id="selected-count">حذف المحدد (0)</span>
+                    </button>
+                </div>
             {% else %}
                 <p style="text-align: center; padding: 40px; color: var(--text-secondary);">
                     {% if search %}
@@ -404,7 +409,112 @@
     <script src="{% static 'js/notifications.js' %}"></script>
     
     <script>
-        // Scripts for products list functionality
+        // تحديث عدد المنتجات المحددة
+        function updateSelectedCount() {
+            const checkboxes = document.querySelectorAll('.product-checkbox:checked');
+            const count = checkboxes.length;
+            const btn = document.getElementById('delete-selected-btn');
+            const countSpan = document.getElementById('selected-count');
+            
+            if (count > 0) {
+                btn.style.display = 'inline-flex';
+                countSpan.textContent = `حذف المحدد (${count})`;
+            } else {
+                btn.style.display = 'none';
+                countSpan.textContent = 'حذف المحدد (0)';
+            }
+        }
+        
+        // تحديد/إلغاء تحديد الكل
+        function toggleSelectAll() {
+            const selectAll = document.getElementById('select-all');
+            const checkboxes = document.querySelectorAll('.product-checkbox');
+            
+            checkboxes.forEach(checkbox => {
+                checkbox.checked = selectAll.checked;
+            });
+            
+            updateSelectedCount();
+        }
+        
+        // إضافة مستمع للتغيير على كل checkbox
+        document.addEventListener('DOMContentLoaded', function() {
+            const checkboxes = document.querySelectorAll('.product-checkbox');
+            checkboxes.forEach(checkbox => {
+                checkbox.addEventListener('change', updateSelectedCount);
+            });
+        });
+        
+        // حذف منتج واحد
+        function deleteProduct(productId, productNumber) {
+            if (!confirm(`هل أنت متأكد من حذف المنتج "${productNumber}"؟`)) {
+                return;
+            }
+            
+            fetch(`/products/${productId}/delete/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: JSON.stringify({})
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('تم حذف المنتج بنجاح');
+                    window.location.reload();
+                } else {
+                    alert('خطأ: ' + data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('حدث خطأ أثناء حذف المنتج');
+            });
+        }
+        
+        // حذف المنتجات المحددة
+        function deleteSelectedProducts() {
+            const checkboxes = document.querySelectorAll('.product-checkbox:checked');
+            
+            if (checkboxes.length === 0) {
+                alert('لم يتم تحديد أي منتج');
+                return;
+            }
+            
+            const productIds = Array.from(checkboxes).map(cb => parseInt(cb.value));
+            const count = productIds.length;
+            
+            if (!confirm(`هل أنت متأكد من حذف ${count} منتج؟`)) {
+                return;
+            }
+            
+            // إرسال طلب للحذف
+            fetch('/api/delete-products-bulk/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: JSON.stringify({
+                    product_ids: productIds
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert(`تم حذف ${count} منتج بنجاح`);
+                    window.location.reload();
+                } else {
+                    alert('خطأ: ' + data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('حدث خطأ أثناء حذف المنتجات');
+            });
+        }
     </script>
 </body>
 </html>

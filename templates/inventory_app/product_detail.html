@@ -115,6 +115,27 @@
             {% endif %}
         </div>
 
+        <!-- نقل المنتج مع إعادة ترتيب -->
+        {% if product.location %}
+        <div class="product-info">
+            <h2 style="margin-bottom: 20px;">🔄 نقل المنتج مع إعادة ترتيب تلقائي</h2>
+            <p style="color: var(--text-secondary); margin-bottom: 20px;">
+                أدخل الموقع الجديد. إذا كان النقل في نفس العمود، سيتم إعادة ترتيب المنتجات التي بين الموقع القديم والجديد فقط.
+            </p>
+            <div style="display: flex; gap: 10px; align-items: center;">
+                <input type="text" 
+                       id="new-location-input" 
+                       placeholder="مثال: R15C4" 
+                       pattern="R\d+C\d+"
+                       style="padding: 12px; border: 2px solid var(--border-color); border-radius: 8px; font-size: 1rem; flex: 1;">
+                <button onclick="moveProductWithShift()" class="btn btn--sm btn--primary">
+                    <span class="icon">🔄</span>
+                    <span>نقل</span>
+                </button>
+            </div>
+        </div>
+        {% endif %}
+
         <!-- الإجراءات -->
         <div style="background: white; padding: 30px; border-radius: 12px; box-shadow: var(--shadow-lg);">
             <h3 style="margin-bottom: 20px;">الإجراءات</h3>
@@ -286,6 +307,61 @@
     
     <script src="{% static 'js/sidebar.js' %}"></script>
     <script src="{% static 'js/auto_refresh.js' %}"></script>
+    
+    <script>
+        function moveProductWithShift() {
+            const newLocation = document.getElementById('new-location-input').value.trim();
+            const productId = {{ product.id }};
+            
+            if (!newLocation) {
+                alert('يرجى إدخال الموقع الجديد');
+                return;
+            }
+            
+            // التحقق من تنسيق الموقع
+            const locationPattern = /^R\d+C\d+$/;
+            if (!locationPattern.test(newLocation)) {
+                alert('تنسيق الموقع غير صحيح. استخدم الصيغة: RعددCعدد (مثال: R15C4)');
+                return;
+            }
+            
+            if (!confirm(`هل أنت متأكد من نقل المنتج للموقع ${newLocation}؟ سيتم إعادة ترتيب باقي المنتجات تلقائياً.`)) {
+                return;
+            }
+            
+            // إرسال الطلب
+            fetch(`/products/${productId}/move/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: JSON.stringify({
+                    new_location: newLocation
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert(data.message);
+                    window.location.reload();
+                } else {
+                    alert('خطأ: ' + data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('حدث خطأ أثناء نقل المنتج');
+            });
+        }
+        
+        // السماح بالضغط على Enter
+        document.getElementById('new-location-input').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                moveProductWithShift();
+            }
+        });
+    </script>
     <script src="{% static 'js/quick_search.js' %}"></script>
     <script src="{% static 'js/notifications.js' %}"></script>
 </body>

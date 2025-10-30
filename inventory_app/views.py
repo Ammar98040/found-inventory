@@ -1,6 +1,7 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.http import JsonResponse, HttpResponse
 from django.contrib import messages
+from django.contrib.auth.decorators import login_required
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 from django.db import transaction
@@ -11,6 +12,7 @@ from django.core import serializers
 from datetime import datetime
 
 
+@login_required
 def home(request):
     """الصفحة الرئيسية - البحث عن المنتجات"""
     return render(request, 'inventory_app/home.html')
@@ -414,15 +416,9 @@ def products_list(request):
     # احسب العدد بعد الفلترة (إذا كان هناك بحث)
     filtered_count = products.count() if search else total_count
     
-    # Add pagination for performance
-    from django.core.paginator import Paginator
-    paginator = Paginator(products, 50)  # Show 50 products per page
-    page_number = request.GET.get('page', 1)
-    page_obj = paginator.get_page(page_number)
-    
+    # عرض جميع المنتجات بدون تقسيم
     return render(request, 'inventory_app/products_list.html', {
-        'products': page_obj,
-        'page_obj': page_obj,
+        'products': products,
         'search': search,
         'total_count': total_count,
         'filtered_count': filtered_count
@@ -523,32 +519,265 @@ def product_edit(request, product_id):
     return render(request, 'inventory_app/product_edit.html', {'product': product})
 
 
+@csrf_exempt
 def product_delete(request, product_id):
     """حذف منتج"""
     product = get_object_or_404(Product, id=product_id)
     
     if request.method == 'POST':
-        product_number = product.product_number
-        quantity = product.quantity
-        name = product.name
-        
-        # تسجيل العملية قبل الحذف
-        AuditLog.objects.create(
-            action='deleted',
-            product=product,
-            product_number=product_number,
-            quantity_before=quantity,
-            quantity_after=0,
-            quantity_change=-quantity,
-            notes=f'تم حذف المنتج: {name}',
-            user=request.user.username if request.user.is_authenticated else 'Guest'
-        )
-        
-        product.delete()
-        messages.success(request, f'تم حذف المنتج {product_number}')
-        return redirect('inventory_app:products_list')
+        try:
+            product_number = product.product_number
+            quantity = product.quantity
+            name = product.name
+            
+            # تسجيل العملية قبل الحذف
+            AuditLog.objects.create(
+                action='deleted',
+                product=product,
+                product_number=product_number,
+                quantity_before=quantity,
+                quantity_after=0,
+                quantity_change=-quantity,
+                notes=f'تم حذف المنتج: {name}',
+                user=request.user.username if request.user.is_authenticated else 'Guest'
+            )
+            
+            product.delete()
+            
+            # إرجاع JSON للطلبات AJAX
+            if request.content_type == 'application/json':
+                return JsonResponse({'success': True, 'message': f'تم حذف المنتج {product_number}'}, json_dumps_params={'ensure_ascii': False})
+            
+            messages.success(request, f'تم حذف المنتج {product_number}')
+            return redirect('inventory_app:products_list')
+        except Exception as e:
+            if request.content_type == 'application/json':
+                return JsonResponse({'success': False, 'error': str(e)}, json_dumps_params={'ensure_ascii': False})
+            messages.error(request, f'خطأ في حذف المنتج: {str(e)}')
+            return redirect('inventory_app:product_detail', product_id=product.id)
     
     return render(request, 'inventory_app/product_delete.html', {'product': product})
+
+
+@csrf_exempt
+def delete_products_bulk(request):
+    """حذف منتجات متعددة دفعة واحدة"""
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            product_ids = data.get('product_ids', [])
+            
+            if not product_ids:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'لم يتم تحديد أي منتجات'
+                }, json_dumps_params={'ensure_ascii': False})
+            
+            deleted_count = 0
+            deleted_products = []
+            
+            with transaction.atomic():
+                products = Product.objects.filter(id__in=product_ids)
+                
+                for product in products:
+                    product_number = product.product_number
+                    quantity = product.quantity
+                    name = product.name
+                    
+                    # تسجيل العملية قبل الحذف
+                    AuditLog.objects.create(
+                        action='deleted',
+                        product=product,
+                        product_number=product_number,
+                        quantity_before=quantity,
+                        quantity_after=0,
+                        quantity_change=-quantity,
+                        notes=f'حذف جماعي: {name}',
+                        user=request.user.username if request.user.is_authenticated else 'Guest'
+                    )
+                    
+                    deleted_products.append(product_number)
+                
+                # حذف المنتجات
+                products.delete()
+                deleted_count = len(deleted_products)
+            
+            return JsonResponse({
+                'success': True,
+                'message': f'تم حذف {deleted_count} منتج بنجاح',
+                'deleted_count': deleted_count,
+                'deleted_products': deleted_products[:10]  # أول 10 فقط
+            }, json_dumps_params={'ensure_ascii': False})
+            
+        except Exception as e:
+            return JsonResponse({
+                'success': False,
+                'error': str(e)
+            }, json_dumps_params={'ensure_ascii': False})
+    
+    return JsonResponse({'success': False, 'error': 'Invalid request method'}, status=400)
+
+
+@csrf_exempt
+def move_product_with_shift(request, product_id):
+    """نقل منتج لموقع معين وإعادة ترتيب باقي المنتجات في نفس العمود"""
+    try:
+        product = get_object_or_404(Product, id=product_id)
+        data = json.loads(request.body)
+        
+        new_location_str = data.get('new_location', '')
+        if not new_location_str:
+            return JsonResponse({'success': False, 'error': 'الموقع الجديد مطلوب'}, json_dumps_params={'ensure_ascii': False})
+        
+        # تحليل الموقع الجديد (مثال: R15C4)
+        import re
+        match = re.match(r'R(\d+)C(\d+)', new_location_str)
+        if not match:
+            return JsonResponse({'success': False, 'error': 'تنسيق الموقع غير صحيح'}, json_dumps_params={'ensure_ascii': False})
+        
+        new_row = int(match.group(1))
+        new_column = int(match.group(2))
+        
+        warehouse = Warehouse.objects.first()
+        if not warehouse:
+            return JsonResponse({'success': False, 'error': 'لا يوجد مستودع'}, json_dumps_params={'ensure_ascii': False})
+        
+        # التحقق من أن العمود الجديد لا يحتوي على عدد صفوف كافي
+        if new_row > warehouse.rows_count:
+            # إضافة صفوف إضافية
+            for row in range(warehouse.rows_count + 1, new_row + 1):
+                warehouse.rows_count += 1
+                warehouse.save()
+                
+                # إنشاء المواقع للعمود الجديد
+                for col in range(1, warehouse.columns_count + 1):
+                    Location.objects.get_or_create(
+                        warehouse=warehouse,
+                        row=row,
+                        column=col,
+                        defaults={'is_active': True}
+                    )
+        
+        with transaction.atomic():
+            old_location = product.location
+            old_row = old_location.row if old_location else None
+            old_column = old_location.column if old_location else None
+            
+            # نقل المنتج للموقع الجديد أولاً
+            new_location = Location.objects.get(warehouse=warehouse, row=new_row, column=new_column)
+            product.location = new_location
+            product.save()
+            
+            # تسجيل العملية للمنتج المنقول
+            old_location_str = old_location.full_location if old_location else 'بدون موقع'
+            AuditLog.objects.create(
+                action='location_assigned',
+                product=product,
+                product_number=product.product_number,
+                quantity_before=product.quantity,
+                quantity_after=product.quantity,
+                quantity_change=0,
+                notes=f'نقل مع إعادة ترتيب: {old_location_str} → {new_location_str}',
+                user=request.user.username if request.user.is_authenticated else 'Guest'
+            )
+            
+            # إذا كان النقل في نفس العمود، نحتاج لإعادة ترتيب المنتجات
+            if old_location and old_column == new_column:
+                # سيناريو 1: نقل المنتج لأسفل في نفس العمود (من R10 إلى R15)
+                if old_row < new_row:
+                    # جلب المنتجات التي كانت بين الموقع القديم والجديد
+                    products_to_shift_up = Product.objects.filter(
+                        location__warehouse=warehouse,
+                        location__column=old_column,
+                        location__row__gt=old_row,
+                        location__row__lte=new_row
+                    ).exclude(id=product.id).select_related('location').order_by('location__row')
+                    
+                    # نقل هذه المنتجات صف واحد لأعلى
+                    for prod in products_to_shift_up:
+                        old_loc = prod.location
+                        # نقل المنتج لصف واحد أقل
+                        if old_loc.row > 1:
+                            new_loc = Location.objects.get(
+                                warehouse=warehouse,
+                                row=old_loc.row - 1,
+                                column=old_loc.column
+                            )
+                            prod.location = new_loc
+                            prod.save()
+                            
+                            AuditLog.objects.create(
+                                action='location_assigned',
+                                product=prod,
+                                product_number=prod.product_number,
+                                quantity_before=prod.quantity,
+                                quantity_after=prod.quantity,
+                                quantity_change=0,
+                                notes=f'إعادة ترتيب تلقائي: {old_loc.full_location} → {new_loc.full_location}',
+                                user=request.user.username if request.user.is_authenticated else 'Guest'
+                            )
+                
+                # سيناريو 2: نقل المنتج لأعلى في نفس العمود (من R15 إلى R10)
+                elif old_row > new_row:
+                    # جلب المنتجات التي كانت بين الموقع الجديد والقديم
+                    products_to_shift_down = Product.objects.filter(
+                        location__warehouse=warehouse,
+                        location__column=old_column,
+                        location__row__gte=new_row,
+                        location__row__lt=old_row
+                    ).exclude(id=product.id).select_related('location').order_by('location__row')
+                    
+                    # نقل هذه المنتجات صف واحد لأسفل
+                    for prod in products_to_shift_down:
+                        old_loc = prod.location
+                        # نقل المنتج لصف واحد أكثر
+                        new_row_for_prod = old_loc.row + 1
+                        
+                        # التحقق من وجود صفوف كافية
+                        if new_row_for_prod > warehouse.rows_count:
+                            warehouse.rows_count += 1
+                            warehouse.save()
+                            
+                            # إنشاء المواقع للصف الجديد
+                            for col in range(1, warehouse.columns_count + 1):
+                                Location.objects.get_or_create(
+                                    warehouse=warehouse,
+                                    row=warehouse.rows_count,
+                                    column=col,
+                                    defaults={'is_active': True}
+                                )
+                        
+                        new_loc = Location.objects.get(
+                            warehouse=warehouse,
+                            row=new_row_for_prod,
+                            column=old_loc.column
+                        )
+                        prod.location = new_loc
+                        prod.save()
+                        
+                        AuditLog.objects.create(
+                            action='location_assigned',
+                            product=prod,
+                            product_number=prod.product_number,
+                            quantity_before=prod.quantity,
+                            quantity_after=prod.quantity,
+                            quantity_change=0,
+                            notes=f'إعادة ترتيب تلقائي: {old_loc.full_location} → {new_loc.full_location}',
+                            user=request.user.username if request.user.is_authenticated else 'Guest'
+                        )
+            
+            # إذا كان النقل لعمود مختلف، لا حاجة لإعادة ترتيب
+            shifted_count = 0 if not old_location or old_column != new_column else 1
+            
+            return JsonResponse({
+                'success': True,
+                'message': f'تم نقل المنتج {product.product_number} بنجاح من {old_location_str} إلى {new_location_str}'
+            }, json_dumps_params={'ensure_ascii': False})
+            
+    except Location.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'الموقع المطلوب غير موجود'}, json_dumps_params={'ensure_ascii': False})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, json_dumps_params={'ensure_ascii': False})
 
 
 def assign_location_to_product(request, product_id):
@@ -1412,6 +1641,7 @@ def backup_restore_page(request):
         'products': Product.objects.count(),
         'audit_logs': AuditLog.objects.count(),
         'daily_reports': DailyReportArchive.objects.count(),
+        'orders': Order.objects.count(),
     }
     
     return render(request, 'inventory_app/backup_restore.html', {
@@ -1472,6 +1702,7 @@ def export_backup(request):
             'products': json.loads(serializers.serialize('json', Product.objects.all())),
             'audit_logs': json.loads(serializers.serialize('json', AuditLog.objects.all())),
             'daily_reports': json.loads(serializers.serialize('json', DailyReportArchive.objects.all())),
+            'orders': json.loads(serializers.serialize('json', Order.objects.all())),
         }
         
         # إنشاء ملف JSON
@@ -1525,6 +1756,7 @@ def import_backup(request):
                 Location.objects.all().delete()
                 Warehouse.objects.all().delete()
                 DailyReportArchive.objects.all().delete()
+                Order.objects.all().delete()
             
             # استيراد البيانات
             if 'warehouses' in data:
@@ -1549,6 +1781,11 @@ def import_backup(request):
             
             if 'daily_reports' in data:
                 objects = serializers.deserialize('json', json.dumps(data['daily_reports']))
+                for obj in objects:
+                    obj.save()
+            
+            if 'orders' in data:
+                objects = serializers.deserialize('json', json.dumps(data['orders']))
                 for obj in objects:
                     obj.save()
         
@@ -1578,6 +1815,7 @@ def data_deletion_page(request):
         'products': Product.objects.count(),
         'audit_logs': AuditLog.objects.count(),
         'daily_reports': DailyReportArchive.objects.count(),
+        'orders': Order.objects.count(),
     }
     
     return render(request, 'inventory_app/data_deletion.html', {
@@ -1599,6 +1837,7 @@ def delete_data(request):
         delete_warehouses = data.get('delete_warehouses', False)
         delete_audit_logs = data.get('delete_audit_logs', False)
         delete_daily_reports = data.get('delete_daily_reports', False)
+        delete_orders = data.get('delete_orders', False)
         
         deleted_items = []
         
@@ -1627,6 +1866,11 @@ def delete_data(request):
             count = DailyReportArchive.objects.count()
             DailyReportArchive.objects.all().delete()
             deleted_items.append(f'{count} تقرير يومي')
+        
+        if delete_orders:
+            count = Order.objects.count()
+            Order.objects.all().delete()
+            deleted_items.append(f'{count} طلبية')
         
         if not deleted_items:
             return JsonResponse({
