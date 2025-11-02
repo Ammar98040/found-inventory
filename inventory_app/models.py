@@ -204,6 +204,40 @@ class Order(models.Model):
         return f"طلب {self.order_number} - {self.created_at.strftime('%Y-%m-%d %H:%M')}"
 
 
+class ProductReturn(models.Model):
+    """نموذج المرتجعات - تسجيل المرتجعات وإضافة الكميات للمنتجات"""
+    return_number = models.CharField(max_length=50, unique=True, verbose_name='رقم المرتجع', db_index=True)
+    
+    # معلومات المرتجع
+    products_data = models.JSONField(verbose_name='بيانات المنتجات المرتجعة', default=list)
+    total_products = models.IntegerField(default=0, verbose_name='عدد المنتجات')
+    total_quantities = models.IntegerField(default=0, verbose_name='إجمالي الكميات المرتجعة')
+    
+    # معلومات إضافية
+    return_reason = models.CharField(max_length=200, blank=True, null=True, verbose_name='سبب الإرجاع')
+    returned_by = models.CharField(max_length=200, blank=True, null=True, verbose_name='اسم المرسل')
+    notes = models.TextField(blank=True, null=True, verbose_name='ملاحظات')
+    user = models.CharField(max_length=100, blank=True, default='System', verbose_name='المستخدم الذي أضاف المرتجع')
+    
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='تاريخ الإنشاء')
+    
+    class Meta:
+        verbose_name = 'مرتجع'
+        verbose_name_plural = 'المرتجعات'
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['-created_at']),
+            models.Index(fields=['return_number']),
+        ]
+    
+    def __str__(self):
+        return f"مرتجع {self.return_number} - {self.created_at.strftime('%Y-%m-%d %H:%M')}"
+    
+    def get_total_value(self):
+        """حساب إجمالي قيمة المرتجع (اختياري - إذا كان هناك أسعار)"""
+        return self.total_quantities
+
+
 # ========== نظام المستخدمين والصلاحيات ==========
 
 class UserProfile(models.Model):

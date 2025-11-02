@@ -8,12 +8,32 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 from django.db import transaction
 from django.db import models as db_models
-from .models import Product, Location, Warehouse, AuditLog, DailyReportArchive, Order, UserProfile, UserActivityLog
+from .models import Product, Location, Warehouse, AuditLog, DailyReportArchive, Order, ProductReturn, UserProfile, UserActivityLog
 from .decorators import admin_required, staff_required, exclude_maintenance, exclude_admin_dashboard, get_user_type, is_admin
+from .forms import LoginForm, RegisterStaffForm, ProductForm, EditStaffForm
 import json
+import logging
 from django.core import serializers
 from datetime import datetime, timedelta
 from django.utils import timezone
+from django.views.decorators.cache import never_cache
+from django.conf import settings
+
+# إعداد Logger للأمان
+security_logger = logging.getLogger('inventory_app.security')
+logger = logging.getLogger('inventory_app')
+
+# Rate limiting - استخدام django-ratelimit إذا كان متاحاً
+try:
+    from django_ratelimit.decorators import ratelimit  # pyright: ignore[reportMissingImports]
+    RATELIMIT_AVAILABLE = True
+except ImportError:
+    RATELIMIT_AVAILABLE = False
+    # إنشاء decorator بديل إذا لم يكن django-ratelimit متاحاً
+    def ratelimit(*args, **kwargs):
+        def decorator(func):
+            return func
+        return decorator
 
 
 @login_required
@@ -1678,7 +1698,7 @@ def daily_report_detail(request, report_id):
 @login_required
 def backup_restore_page(request):
     """صفحة النسخ الاحتياطي والاستعادة - للمسؤول فقط"""
-    # إحصائيات البيانات
+    # إحصائيات البيانات الشاملة
     stats = {
         'warehouses': Warehouse.objects.count(),
         'locations': Location.objects.count(),
@@ -1686,6 +1706,9 @@ def backup_restore_page(request):
         'audit_logs': AuditLog.objects.count(),
         'daily_reports': DailyReportArchive.objects.count(),
         'orders': Order.objects.count(),
+        'returns': ProductReturn.objects.count(),
+        'user_profiles': UserProfile.objects.count(),
+        'user_activity_logs': UserActivityLog.objects.count(),
     }
     
     return render(request, 'inventory_app/backup_restore.html', {
@@ -1734,34 +1757,58 @@ def update_location_notes(request):
 @exclude_maintenance
 @login_required
 def export_backup(request):
-    """تصدير النسخ الاحتياطي"""
+    """تصدير النسخ الاحتياطي الشامل - يشمل جميع البيانات والأنشطة"""
     try:
-        # جمع البيانات
+        # جمع جميع البيانات بشكل شامل
         data = {
             'export_info': {
                 'date': datetime.now().isoformat(),
-                'version': '1.0',
-                'description': 'نسخ احتياطي كامل من نظام إدارة المستودع'
+                'version': '2.0',
+                'description': 'نسخ احتياطي شامل كامل من نظام إدارة المستودع - يشمل جميع البيانات والعمليات والأنشطة'
             },
+            # البيانات الأساسية
             'warehouses': json.loads(serializers.serialize('json', Warehouse.objects.all())),
             'locations': json.loads(serializers.serialize('json', Location.objects.all())),
             'products': json.loads(serializers.serialize('json', Product.objects.all())),
+            
+            # سجلات العمليات
             'audit_logs': json.loads(serializers.serialize('json', AuditLog.objects.all())),
-            'daily_reports': json.loads(serializers.serialize('json', DailyReportArchive.objects.all())),
             'orders': json.loads(serializers.serialize('json', Order.objects.all())),
+            'returns': json.loads(serializers.serialize('json', ProductReturn.objects.all())),
+            
+            # التقارير
+            'daily_reports': json.loads(serializers.serialize('json', DailyReportArchive.objects.all())),
+            
+            # بيانات المستخدمين والأنشطة
+            'user_profiles': json.loads(serializers.serialize('json', UserProfile.objects.all())),
+            'user_activity_logs': json.loads(serializers.serialize('json', UserActivityLog.objects.all())),
+            
+            # إحصائيات النسخ الاحتياطي
+            'backup_stats': {
+                'warehouses_count': Warehouse.objects.count(),
+                'locations_count': Location.objects.count(),
+                'products_count': Product.objects.count(),
+                'audit_logs_count': AuditLog.objects.count(),
+                'orders_count': Order.objects.count(),
+                'returns_count': ProductReturn.objects.count(),
+                'daily_reports_count': DailyReportArchive.objects.count(),
+                'user_profiles_count': UserProfile.objects.count(),
+                'user_activity_logs_count': UserActivityLog.objects.count(),
+            }
         }
         
         # إنشاء ملف JSON
         json_data = json.dumps(data, ensure_ascii=False, indent=2)
         
         # إعداد الاستجابة
-        filename = f'backup_{datetime.now().strftime("%Y%m%d_%H%M%S")}.json'
+        filename = f'backup_full_{datetime.now().strftime("%Y%m%d_%H%M%S")}.json'
         response = HttpResponse(json_data, content_type='application/json')
         response['Content-Disposition'] = f'attachment; filename="{filename}"'
         
         return response
         
     except Exception as e:
+        logger.error(f'Error in export_backup: {str(e)}')
         return JsonResponse({
             'success': False,
             'error': str(e)
@@ -1798,15 +1845,19 @@ def import_backup(request):
         # بدء الاستيراد
         with transaction.atomic():
             if clear_existing:
-                # حذف البيانات الموجودة
+                # حذف جميع البيانات الموجودة بالترتيب الصحيح (تجنب أخطاء Foreign Key)
+                UserActivityLog.objects.all().delete()
                 AuditLog.objects.all().delete()
+                ProductReturn.objects.all().delete()
+                Order.objects.all().delete()
                 Product.objects.all().delete()
                 Location.objects.all().delete()
                 Warehouse.objects.all().delete()
                 DailyReportArchive.objects.all().delete()
-                Order.objects.all().delete()
+                UserProfile.objects.all().delete()
             
-            # استيراد البيانات
+            # استيراد البيانات بالترتيب الصحيح (حسب العلاقات)
+            # 1. البيانات الأساسية أولاً
             if 'warehouses' in data:
                 objects = serializers.deserialize('json', json.dumps(data['warehouses']))
                 for obj in objects:
@@ -1822,18 +1873,37 @@ def import_backup(request):
                 for obj in objects:
                     obj.save()
             
+            # 2. ملفات المستخدمين
+            if 'user_profiles' in data:
+                objects = serializers.deserialize('json', json.dumps(data['user_profiles']))
+                for obj in objects:
+                    obj.save()
+            
+            # 3. سجلات العمليات
             if 'audit_logs' in data:
                 objects = serializers.deserialize('json', json.dumps(data['audit_logs']))
                 for obj in objects:
                     obj.save()
             
+            if 'orders' in data:
+                objects = serializers.deserialize('json', json.dumps(data['orders']))
+                for obj in objects:
+                    obj.save()
+            
+            if 'returns' in data:
+                objects = serializers.deserialize('json', json.dumps(data['returns']))
+                for obj in objects:
+                    obj.save()
+            
+            # 4. التقارير
             if 'daily_reports' in data:
                 objects = serializers.deserialize('json', json.dumps(data['daily_reports']))
                 for obj in objects:
                     obj.save()
             
-            if 'orders' in data:
-                objects = serializers.deserialize('json', json.dumps(data['orders']))
+            # 5. سجلات أنشطة المستخدمين
+            if 'user_activity_logs' in data:
+                objects = serializers.deserialize('json', json.dumps(data['user_activity_logs']))
                 for obj in objects:
                     obj.save()
         
@@ -1858,7 +1928,7 @@ def import_backup(request):
 @login_required
 def data_deletion_page(request):
     """صفحة حذف البيانات"""
-    # إحصائيات البيانات
+    # إحصائيات البيانات الشاملة
     stats = {
         'warehouses': Warehouse.objects.count(),
         'locations': Location.objects.count(),
@@ -1866,6 +1936,9 @@ def data_deletion_page(request):
         'audit_logs': AuditLog.objects.count(),
         'daily_reports': DailyReportArchive.objects.count(),
         'orders': Order.objects.count(),
+        'returns': ProductReturn.objects.count(),
+        'user_profiles': UserProfile.objects.count(),
+        'user_activity_logs': UserActivityLog.objects.count(),
     }
     
     return render(request, 'inventory_app/data_deletion.html', {
@@ -1890,39 +1963,58 @@ def delete_data(request):
         delete_audit_logs = data.get('delete_audit_logs', False)
         delete_daily_reports = data.get('delete_daily_reports', False)
         delete_orders = data.get('delete_orders', False)
+        delete_returns = data.get('delete_returns', False)
+        delete_user_profiles = data.get('delete_user_profiles', False)
+        delete_user_activity_logs = data.get('delete_user_activity_logs', False)
         
         deleted_items = []
         
-        # حذف البيانات المحددة
-        if delete_products:
-            count = Product.objects.count()
-            Product.objects.all().delete()
-            deleted_items.append(f'{count} منتج')
-        
-        if delete_warehouses:
-            count = Warehouse.objects.count()
-            Warehouse.objects.all().delete()
-            deleted_items.append(f'{count} مستودع')
-        
-        if delete_locations:
-            count = Location.objects.count()
-            Location.objects.all().delete()
-            deleted_items.append(f'{count} مكان')
+        # حذف البيانات المحددة بالترتيب الصحيح (تجنب أخطاء Foreign Key)
+        # 1. حذف السجلات التي تعتمد على بيانات أخرى أولاً
+        if delete_user_activity_logs:
+            count = UserActivityLog.objects.count()
+            UserActivityLog.objects.all().delete()
+            deleted_items.append(f'{count} سجل نشاط مستخدم')
         
         if delete_audit_logs:
             count = AuditLog.objects.count()
             AuditLog.objects.all().delete()
             deleted_items.append(f'{count} سجل عمليات')
         
-        if delete_daily_reports:
-            count = DailyReportArchive.objects.count()
-            DailyReportArchive.objects.all().delete()
-            deleted_items.append(f'{count} تقرير يومي')
+        if delete_returns:
+            count = ProductReturn.objects.count()
+            ProductReturn.objects.all().delete()
+            deleted_items.append(f'{count} مرتجع')
         
         if delete_orders:
             count = Order.objects.count()
             Order.objects.all().delete()
             deleted_items.append(f'{count} طلبية')
+        
+        if delete_products:
+            count = Product.objects.count()
+            Product.objects.all().delete()
+            deleted_items.append(f'{count} منتج')
+        
+        if delete_locations:
+            count = Location.objects.count()
+            Location.objects.all().delete()
+            deleted_items.append(f'{count} مكان')
+        
+        if delete_warehouses:
+            count = Warehouse.objects.count()
+            Warehouse.objects.all().delete()
+            deleted_items.append(f'{count} مستودع')
+        
+        if delete_daily_reports:
+            count = DailyReportArchive.objects.count()
+            DailyReportArchive.objects.all().delete()
+            deleted_items.append(f'{count} تقرير يومي')
+        
+        if delete_user_profiles:
+            count = UserProfile.objects.count()
+            UserProfile.objects.all().delete()
+            deleted_items.append(f'{count} ملف مستخدم')
         
         if not deleted_items:
             return JsonResponse({
@@ -2018,42 +2110,57 @@ def reset_all_quantities(request):
 
 # ========== نظام المستخدمين والصلاحيات ==========
 
+@never_cache
 @require_http_methods(["GET", "POST"])
+@ratelimit(key='ip', rate='5/m', method='POST', block=True) if RATELIMIT_AVAILABLE else lambda x: x
 def custom_login(request):
-    """تسجيل الدخول مخصص مع تسجيل النشاط"""
+    """تسجيل الدخول مخصص مع تسجيل النشاط وتحسينات الأمان"""
     if request.user.is_authenticated:
         return redirect('inventory_app:home')
     
     if request.method == 'POST':
-        username = request.POST.get('username')
-        password = request.POST.get('password')
+        form = LoginForm(request.POST)
         
-        user = authenticate(request, username=username, password=password)
-        
-        if user is not None:
-            auth_login(request, user)
+        if form.is_valid():
+            username = form.cleaned_data['username']
+            password = form.cleaned_data['password']
             
-            # تسجيل نشاط تسجيل الدخول
-            UserActivityLog.log_activity(
-                user=user,
-                action='login',
-                description=f'تم تسجيل الدخول بنجاح',
-                request=request
-            )
+            user = authenticate(request, username=username, password=password)
             
-            # إنشاء UserProfile إذا لم يكن موجوداً
-            if not hasattr(user, 'user_profile'):
-                UserProfile.objects.create(
+            if user is not None:
+                # التحقق من أن المستخدم نشط
+                if not user.is_active:
+                    security_logger.warning(f'محاولة تسجيل دخول لحساب معطل: {username} من IP: {request.META.get("REMOTE_ADDR")}')
+                    messages.error(request, 'هذا الحساب معطل. يرجى التواصل مع المسؤول')
+                    return render(request, 'auth/login.html', {'form': form})
+                
+                auth_login(request, user)
+                
+                # تسجيل نشاط تسجيل الدخول
+                UserActivityLog.log_activity(
                     user=user,
-                    user_type='admin' if user.is_superuser else 'staff'
+                    action='login',
+                    description=f'تم تسجيل الدخول بنجاح',
+                    request=request
                 )
-            
-            messages.success(request, f'مرحباً {user.username}!')
-            return redirect('inventory_app:home')
-        else:
-            messages.error(request, 'اسم المستخدم أو كلمة المرور غير صحيحة')
-            # تسجيل محاولة فاشلة
-            if username:
+                
+                logger.info(f'User {username} logged in successfully from IP: {request.META.get("REMOTE_ADDR")}')
+                
+                # إنشاء UserProfile إذا لم يكن موجوداً
+                if not hasattr(user, 'user_profile'):
+                    UserProfile.objects.create(
+                        user=user,
+                        user_type='admin' if user.is_superuser else 'staff'
+                    )
+                
+                messages.success(request, f'مرحباً {user.username}!')
+                return redirect('inventory_app:home')
+            else:
+                # تسجيل محاولة فاشلة للأمان
+                security_logger.warning(f'Failed login attempt for username: {username} from IP: {request.META.get("REMOTE_ADDR")}')
+                messages.error(request, 'اسم المستخدم أو كلمة المرور غير صحيحة')
+                
+                # تسجيل محاولة فاشلة
                 try:
                     failed_user = User.objects.get(username=username)
                     UserActivityLog.log_activity(
@@ -2064,10 +2171,17 @@ def custom_login(request):
                     )
                 except User.DoesNotExist:
                     pass
-            
-            return redirect('login')
+                
+                return render(request, 'auth/login.html', {'form': form})
+        else:
+            # تسجيل أخطاء التحقق
+            security_logger.warning(f'Invalid form data in login attempt from IP: {request.META.get("REMOTE_ADDR")}')
+            messages.error(request, 'يرجى التحقق من البيانات المدخلة')
     
-    return render(request, 'auth/login.html')
+    else:
+        form = LoginForm()
+    
+    return render(request, 'auth/login.html', {'form': form})
 
 
 @login_required
@@ -2089,46 +2203,37 @@ def custom_logout(request):
 
 
 @admin_required
+@never_cache
 @require_http_methods(["GET", "POST"])
+@ratelimit(key='user', rate='10/h', method='POST', block=True) if RATELIMIT_AVAILABLE else lambda x: x
 def register_staff(request):
-    """إنشاء حساب موظف جديد - للمسؤول فقط"""
+    """إنشاء حساب موظف جديد - للمسؤول فقط مع تحسينات الأمان"""
     if request.method == 'POST':
-        username = request.POST.get('username')
-        password = request.POST.get('password')
-        password_confirm = request.POST.get('password_confirm')
-        email = request.POST.get('email', '')
-        phone = request.POST.get('phone', '')
+        form = RegisterStaffForm(request.POST)
         
-        # التحقق من البيانات
-        if not username or not password:
-            messages.error(request, 'اسم المستخدم وكلمة المرور مطلوبان')
-            return render(request, 'auth/register.html')
-        
-        if password != password_confirm:
-            messages.error(request, 'كلمات المرور غير متطابقة')
-            return render(request, 'auth/register.html')
-        
-        if User.objects.filter(username=username).exists():
-            messages.error(request, 'اسم المستخدم موجود بالفعل')
-            return render(request, 'auth/register.html')
-        
-        try:
-            # إنشاء المستخدم
-            with transaction.atomic():
-                user = User.objects.create_user(
-                    username=username,
-                    password=password,
-                    email=email,
-                    is_staff=False  # لا نجعله staff في Django default
-                )
+        if form.is_valid():
+            username = form.cleaned_data['username']
+            password = form.cleaned_data['password']
+            email = form.cleaned_data['email']
+            phone = form.cleaned_data['phone']
+            
+            try:
+                # إنشاء المستخدم
+                with transaction.atomic():
+                    user = User.objects.create_user(
+                        username=username,
+                        password=password,
+                        email=email if email else None,
+                        is_staff=False  # لا نجعله staff في Django default
+                    )
                 
-                # إنشاء UserProfile
-                UserProfile.objects.create(
-                    user=user,
-                    user_type='staff',
-                    phone=phone,
-                    is_active=True
-                )
+                    # إنشاء UserProfile
+                    UserProfile.objects.create(
+                        user=user,
+                        user_type='staff',
+                        phone=phone,
+                        is_active=True
+                    )
                 
                 # تسجيل النشاط
                 UserActivityLog.log_activity(
@@ -2141,14 +2246,23 @@ def register_staff(request):
                     object_name=username
                 )
                 
+                logger.info(f'Admin {request.user.username} created new staff account: {username}')
                 messages.success(request, f'تم إنشاء حساب الموظف {username} بنجاح')
                 return redirect('inventory_app:admin_dashboard')
                 
-        except Exception as e:
-            messages.error(request, f'حدث خطأ أثناء إنشاء الحساب: {str(e)}')
-            return render(request, 'auth/register.html')
+            except Exception as e:
+                security_logger.error(f'Error creating staff account: {str(e)} from IP: {request.META.get("REMOTE_ADDR")}')
+                logger.error(f'Error in register_staff: {str(e)}')
+                messages.error(request, f'حدث خطأ أثناء إنشاء الحساب: {str(e)}')
+                return render(request, 'auth/register.html', {'form': form})
+        else:
+            # تسجيل أخطاء التحقق
+            security_logger.warning(f'Invalid form data in register_staff from IP: {request.META.get("REMOTE_ADDR")}')
+            messages.error(request, 'يرجى التحقق من البيانات المدخلة')
+    else:
+        form = RegisterStaffForm()
     
-    return render(request, 'auth/register.html')
+    return render(request, 'auth/register.html', {'form': form})
 
 
 @admin_required
@@ -2229,6 +2343,81 @@ def admin_dashboard(request):
     # ترتيب الموظفين حسب النشاط
     staff_members.sort(key=lambda x: x['today_activities'], reverse=True)
     
+    # قائمة المسؤولين مع إحصائياتهم (جميع المسؤولين - نشط وغير نشط)
+    admin_members = []
+    admin_profiles = UserProfile.objects.filter(user_type='admin').select_related('user')
+    
+    for profile in admin_profiles:
+        user = profile.user
+        # عدد الأنشطة اليوم (UserActivityLog)
+        today_count = UserActivityLog.objects.filter(
+            user=user,
+            created_at__date=timezone.now().date()
+        ).count()
+        
+        # عدد الأنشطة آخر 7 أيام (UserActivityLog)
+        week_count = UserActivityLog.objects.filter(
+            user=user,
+            created_at__gte=seven_days_ago
+        ).count()
+        
+        # عدد العمليات اليوم (AuditLog) - جميع أنواع العمليات
+        today_operations = AuditLog.objects.filter(
+            user=user.username,
+            created_at__date=timezone.now().date()
+        ).count()
+        
+        # عدد العمليات آخر 7 أيام (AuditLog)
+        week_operations = AuditLog.objects.filter(
+            user=user.username,
+            created_at__gte=seven_days_ago
+        ).count()
+        
+        # آخر نشاط (UserActivityLog)
+        last_activity = UserActivityLog.objects.filter(user=user).order_by('-created_at').first()
+        
+        # آخر عملية (AuditLog)
+        last_operation = AuditLog.objects.filter(user=user.username).order_by('-created_at').first()
+        
+        # العمليات الأخيرة (آخر 20 عملية) - جميع الإجراءات
+        recent_operations = AuditLog.objects.filter(user=user.username).select_related('product').order_by('-created_at')[:20]
+        
+        # إحصائيات العمليات حسب النوع (جميع أنواع العمليات)
+        operation_stats = {}
+        for action_code, action_name in AuditLog.ACTION_CHOICES:
+            count = AuditLog.objects.filter(user=user.username, action=action_code).count()
+            if count > 0:
+                operation_stats[action_name] = count
+        
+        # إحصائيات الأنشطة للمسؤول (UserActivityLog)
+        activity_stats = {}
+        for action_code, action_name in UserActivityLog.ACTION_TYPES:
+            count = UserActivityLog.objects.filter(
+                user=user,
+                action=action_code,
+                created_at__gte=seven_days_ago
+            ).count()
+            if count > 0:
+                activity_stats[action_name] = count
+        
+        admin_members.append({
+            'profile': profile,
+            'user': user,
+            'today_activities': today_count,
+            'week_activities': week_count,
+            'today_operations': today_operations,
+            'week_operations': week_operations,
+            'last_activity': last_activity,
+            'last_operation': last_operation,
+            'recent_operations': recent_operations,
+            'operation_stats': operation_stats,
+            'activity_stats': activity_stats,
+            'last_login_ip': profile.last_login_ip,
+        })
+    
+    # ترتيب المسؤولين حسب النشاط
+    admin_members.sort(key=lambda x: x['today_activities'], reverse=True)
+    
     # آخر 50 نشاط
     recent_logs = UserActivityLog.objects.select_related('user').order_by('-created_at')[:50]
     
@@ -2248,6 +2437,7 @@ def admin_dashboard(request):
         'recent_activities': recent_activities,
         'today_activities': today_activities,
         'staff_members': staff_members,
+        'admin_members': admin_members,
         'recent_logs': recent_logs,
         'activity_stats': activity_stats,
     }
@@ -2418,60 +2608,96 @@ def view_staff(request, user_id):
 
 
 @admin_required
+@never_cache
+@ratelimit(key='user', rate='20/h', method='POST', block=True) if RATELIMIT_AVAILABLE else lambda x: x
 def edit_staff(request, user_id):
-    """تعديل بيانات موظف - للمسؤول فقط"""
+    """تعديل بيانات موظف - للمسؤول فقط مع تحسينات الأمان"""
     staff_user = get_object_or_404(User, id=user_id)
     staff_profile = get_object_or_404(UserProfile, user=staff_user)
     
     if request.method == 'POST':
-        # تحديث بيانات المستخدم
-        username = request.POST.get('username', '').strip()
-        email = request.POST.get('email', '').strip()
+        form = EditStaffForm(request.POST)
         
-        # التحقق من عدم تكرار اسم المستخدم
-        if username and username != staff_user.username:
-            if User.objects.filter(username=username).exclude(id=user_id).exists():
-                messages.error(request, 'اسم المستخدم مستخدم بالفعل')
-            else:
-                staff_user.username = username
-        
-        staff_user.email = email
-        staff_user.save()
-        
-        # تحديث UserProfile
-        staff_profile.phone = request.POST.get('phone', '').strip()
-        staff_profile.notes = request.POST.get('notes', '').strip()
-        user_type = request.POST.get('user_type', 'staff')
-        if user_type in ['admin', 'staff']:
-            staff_profile.user_type = user_type
-        staff_profile.save()
-        
-        # تحديث كلمة السر إذا تم إدخالها
-        new_password = request.POST.get('password', '').strip()
-        if new_password:
-            staff_user.set_password(new_password)
-            staff_user.save()
-        
-        # تسجيل النشاط
-        UserActivityLog.log_activity(
-            user=request.user,
-            action='user_updated',
-            description=f'تعديل بيانات الموظف {staff_user.username}',
-            request=request,
-            object_type='User',
-            object_id=staff_user.id,
-            object_name=staff_user.username
-        )
-        
-        messages.success(request, f'تم تحديث بيانات الموظف {staff_user.username} بنجاح')
-        return redirect('inventory_app:admin_dashboard')
+        if form.is_valid():
+            try:
+                with transaction.atomic():
+                    # تحديث بيانات المستخدم
+                    username = form.cleaned_data['username']
+                    email = form.cleaned_data['email']
+                    
+                    # التحقق من عدم تكرار اسم المستخدم
+                    if username != staff_user.username:
+                        if User.objects.filter(username=username).exclude(id=user_id).exists():
+                            messages.error(request, 'اسم المستخدم مستخدم بالفعل')
+                            return render(request, 'inventory_app/edit_staff.html', {
+                                'staff_user': staff_user,
+                                'staff_profile': staff_profile,
+                                'form': form
+                            })
+                        staff_user.username = username
+                    
+                    staff_user.email = email if email else staff_user.email
+                    
+                    # تحديث كلمة السر إذا تم إدخالها
+                    new_password = form.cleaned_data['password']
+                    if new_password:
+                        staff_user.set_password(new_password)
+                        logger.info(f'Admin {request.user.username} changed password for user {staff_user.username}')
+                    
+                    staff_user.save()
+                    
+                    # تحديث UserProfile
+                    staff_profile.phone = form.cleaned_data['phone']
+                    staff_profile.notes = form.cleaned_data['notes']
+                    staff_profile.user_type = form.cleaned_data['user_type']
+                    staff_profile.save()
+                
+                # تسجيل النشاط
+                UserActivityLog.log_activity(
+                    user=request.user,
+                    action='user_updated',
+                    description=f'تعديل بيانات الموظف {staff_user.username}',
+                    request=request,
+                    object_type='User',
+                    object_id=staff_user.id,
+                    object_name=staff_user.username
+                )
+                
+                logger.info(f'Admin {request.user.username} updated staff account: {staff_user.username}')
+                messages.success(request, f'تم تحديث بيانات الموظف {staff_user.username} بنجاح')
+                return redirect('inventory_app:admin_dashboard')
+                
+            except Exception as e:
+                security_logger.error(f'Error updating staff account: {str(e)} from IP: {request.META.get("REMOTE_ADDR")}')
+                logger.error(f'Error in edit_staff: {str(e)}')
+                messages.error(request, f'حدث خطأ أثناء التحديث: {str(e)}')
+        else:
+            security_logger.warning(f'Invalid form data in edit_staff from IP: {request.META.get("REMOTE_ADDR")}')
+            messages.error(request, 'يرجى التحقق من البيانات المدخلة')
+    else:
+        form = EditStaffForm(initial={
+            'username': staff_user.username,
+            'email': staff_user.email,
+            'phone': staff_profile.phone,
+            'user_type': staff_profile.user_type,
+            'notes': staff_profile.notes,
+        })
     
     context = {
         'staff_user': staff_user,
         'staff_profile': staff_profile,
+        'form': form,
     }
     
     return render(request, 'inventory_app/edit_staff.html', context)
+
+
+def csrf_failure(request, reason=""):
+    """معالجة أخطاء CSRF للأمان"""
+    security_logger.warning(f'CSRF failure: {reason} from IP: {request.META.get("REMOTE_ADDR")} | User: {request.user.username if request.user.is_authenticated else "Anonymous"} | Path: {request.path}')
+    
+    messages.error(request, 'حدث خطأ أمني. يرجى المحاولة مرة أخرى.')
+    return redirect('inventory_app:home')
 
 
 @admin_required
@@ -2565,4 +2791,247 @@ def delete_staff(request, user_id):
             'success': False,
             'error': f'حدث خطأ: {str(e)}'
         }, status=500)
+
+
+
+# ========== نظام المرتجعات ==========
+
+@login_required
+@staff_required
+def returns_list(request):
+    """عرض قائمة المرتجعات"""
+    returns = ProductReturn.objects.all().order_by('-created_at')[:100]
+    
+    # إحصائيات
+    total_returns = ProductReturn.objects.count()
+    today_returns = ProductReturn.objects.filter(created_at__date=timezone.now().date()).count()
+    total_quantities_returned = ProductReturn.objects.aggregate(
+        total=db_models.Sum('total_quantities')
+    )['total'] or 0
+    
+    context = {
+        'returns': returns,
+        'total_returns': total_returns,
+        'today_returns': today_returns,
+        'total_quantities_returned': total_quantities_returned,
+    }
+    
+    UserActivityLog.log_activity(
+        user=request.user,
+        action='page_viewed',
+        description='عرض قائمة المرتجعات',
+        request=request,
+        url=request.path
+    )
+    
+    return render(request, 'inventory_app/returns_list.html', context)
+
+
+@login_required
+@staff_required
+def add_return(request):
+    """إضافة مرتجع جديد - صفحة النموذج"""
+    products = Product.objects.select_related('location').all().order_by('product_number')
+    
+    context = {
+        'products': products,
+    }
+    
+    return render(request, 'inventory_app/add_return.html', context)
+
+
+@login_required
+@staff_required
+@csrf_exempt
+@require_http_methods(["POST"])
+@transaction.atomic
+def process_return(request):
+    """معالجة المرتجع وإضافة الكميات للمنتجات - بدقة عالية جداً"""
+    try:
+        data = json.loads(request.body)
+        products_list = data.get('products', [])
+        return_reason = data.get('return_reason', '').strip()
+        returned_by = data.get('returned_by', '').strip()
+        notes = data.get('notes', '').strip()
+        
+        if not products_list:
+            return JsonResponse({
+                'success': False,
+                'error': 'لم يتم تحديد أي منتج للإرجاع'
+            }, status=400)
+        
+        # التحقق من صحة البيانات والحسابات قبل المعالجة
+        validated_products = []
+        product_numbers = []
+        
+        for item in products_list:
+            product_number = item.get('number', '').strip()
+            quantity = item.get('quantity', 0)
+            
+            if not product_number:
+                continue
+            
+            try:
+                quantity = int(quantity)
+                if quantity <= 0:
+                    return JsonResponse({
+                        'success': False,
+                        'error': f'كمية المنتج {product_number} يجب أن تكون أكبر من صفر'
+                    }, status=400)
+            except (ValueError, TypeError):
+                return JsonResponse({
+                    'success': False,
+                    'error': f'كمية المنتج {product_number} غير صحيحة'
+                }, status=400)
+            
+            product_numbers.append(product_number)
+            validated_products.append({
+                'product_number': product_number,
+                'quantity': quantity
+            })
+        
+        if not validated_products:
+            return JsonResponse({
+                'success': False,
+                'error': 'لا توجد منتجات صحيحة للمعالجة'
+            }, status=400)
+        
+        # الحصول على جميع المنتجات دفعة واحدة مع lock للتأكد من الدقة
+        products_dict = {
+            p.product_number: p 
+            for p in Product.objects.filter(
+                product_number__in=product_numbers
+            ).select_for_update()
+        }
+        
+        # التحقق من وجود جميع المنتجات
+        missing_products = [p['product_number'] for p in validated_products if p['product_number'] not in products_dict]
+        if missing_products:
+            return JsonResponse({
+                'success': False,
+                'error': f'المنتجات التالية غير موجودة: {", ".join(missing_products)}'
+            }, status=400)
+        
+        # معالجة المرتجع مع تسجيل دقيق
+        return_products_data = []
+        total_quantities = 0
+        updated_products_count = 0
+        
+        for item in validated_products:
+            product_number = item['product_number']
+            return_quantity = item['quantity']
+            
+            product = products_dict[product_number]
+            
+            # الحصول على الكمية قبل التحديث بدقة
+            old_quantity = product.quantity
+            
+            # إضافة الكمية المرتجعة بدقة عالية
+            product.quantity = old_quantity + return_quantity
+            
+            # حفظ المنتج
+            product.save(update_fields=['quantity'])
+            
+            # تسجيل في AuditLog بدقة
+            AuditLog.objects.create(
+                action='quantity_added',
+                product=product,
+                product_number=product_number,
+                quantity_before=old_quantity,
+                quantity_after=product.quantity,
+                quantity_change=return_quantity,
+                notes=f'إرجاع {return_quantity} من المرتجع',
+                user=request.user.username if request.user.is_authenticated else 'Guest'
+            )
+            
+            # إضافة إلى بيانات المرتجع
+            return_products_data.append({
+                'product_number': product_number,
+                'product_name': product.name,
+                'quantity_before': old_quantity,
+                'quantity_returned': return_quantity,
+                'quantity_after': product.quantity,
+            })
+            
+            # حساب الإجماليات بدقة
+            total_quantities += return_quantity
+            updated_products_count += 1
+        
+        # إنشاء رقم مرتجع فريد
+        from datetime import datetime
+        import random
+        import string
+        
+        return_number = f"RET-{datetime.now().strftime('%Y%m%d%H%M%S')}-{''.join(random.choices(string.ascii_uppercase + string.digits, k=4))}"
+        
+        # إنشاء المرتجع
+        product_return = ProductReturn.objects.create(
+            return_number=return_number,
+            products_data=return_products_data,
+            total_products=updated_products_count,
+            total_quantities=total_quantities,
+            return_reason=return_reason if return_reason else None,
+            returned_by=returned_by if returned_by else None,
+            notes=notes if notes else None,
+            user=request.user.username if request.user.is_authenticated else 'Guest'
+        )
+        
+        # تسجيل النشاط
+        UserActivityLog.log_activity(
+            user=request.user,
+            action='order_created',
+            description=f'تم إنشاء مرتجع جديد: {return_number} - عدد المنتجات: {updated_products_count} - الكمية: {total_quantities}',
+            request=request,
+            object_type='ProductReturn',
+            object_id=product_return.id,
+            object_name=return_number
+        )
+        
+        logger.info(f'Return created: {return_number} by {request.user.username}, Products: {updated_products_count}, Quantities: {total_quantities}')
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'تم إضافة المرتجع بنجاح - تم إضافة {total_quantities} كمية إلى {updated_products_count} منتج',
+            'return_number': return_number,
+            'return_id': product_return.id,
+            'products_updated': updated_products_count,
+            'total_quantities': total_quantities,
+            'return_data': return_products_data
+        })
+        
+    except json.JSONDecodeError:
+        return JsonResponse({
+            'success': False,
+            'error': 'خطأ في قراءة البيانات'
+        }, status=400)
+    except Exception as e:
+        logger.error(f'Error processing return: {str(e)}')
+        security_logger.error(f'Error processing return: {str(e)} from IP: {request.META.get("REMOTE_ADDR")}')
+        return JsonResponse({
+            'success': False,
+            'error': f'حدث خطأ أثناء معالجة المرتجع: {str(e)}'
+        }, status=500)
+
+
+@login_required
+@staff_required
+def return_detail(request, return_id):
+    """عرض تفاصيل مرتجع معين"""
+    product_return = get_object_or_404(ProductReturn, id=return_id)
+    
+    context = {
+        'return': product_return,
+    }
+    
+    UserActivityLog.log_activity(
+        user=request.user,
+        action='page_viewed',
+        description=f'عرض تفاصيل المرتجع {product_return.return_number}',
+        request=request,
+        object_type='ProductReturn',
+        object_id=product_return.id,
+        object_name=product_return.return_number
+    )
+    
+    return render(request, 'inventory_app/return_detail.html', context)
 

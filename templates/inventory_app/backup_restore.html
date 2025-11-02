@@ -89,7 +89,7 @@
 
         <!-- إحصائيات البيانات -->
         <div class="backup-section">
-            <h2 style="margin-bottom: 20px; color: var(--primary-color);">📊 إحصائيات البيانات الحالية</h2>
+            <h2 style="margin-bottom: 20px; color: var(--primary-color);">📊 إحصائيات البيانات الحالية (شامل)</h2>
             <div class="stats-grid">
                 <div class="stat-item">
                     <div class="stat-label">المستودعات</div>
@@ -108,8 +108,24 @@
                     <div class="stat-value">{{ stats.audit_logs }}</div>
                 </div>
                 <div class="stat-item">
+                    <div class="stat-label">الطلبات</div>
+                    <div class="stat-value">{{ stats.orders }}</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">المرتجعات</div>
+                    <div class="stat-value">{{ stats.returns }}</div>
+                </div>
+                <div class="stat-item">
                     <div class="stat-label">التقارير</div>
                     <div class="stat-value">{{ stats.daily_reports }}</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">ملفات المستخدمين</div>
+                    <div class="stat-value">{{ stats.user_profiles }}</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">سجلات أنشطة المستخدمين</div>
+                    <div class="stat-value">{{ stats.user_activity_logs }}</div>
                 </div>
             </div>
         </div>
@@ -118,9 +134,16 @@
         <div class="backup-section">
             <div class="action-card">
                 <div class="action-icon">📤</div>
-                <h3 style="margin-bottom: 15px;">تصدير النسخ الاحتياطي</h3>
+                <h3 style="margin-bottom: 15px;">تصدير النسخ الاحتياطي الشامل</h3>
                 <p style="color: var(--text-secondary); margin-bottom: 20px;">
-                    قم بتنزيل نسخة احتياطية كاملة من جميع بيانات النظام. يمكنك استخدام هذا الملف لاستعادة البيانات لاحقاً.
+                    قم بتنزيل نسخة احتياطية <strong>شاملة وكاملة</strong> من جميع بيانات النظام، تشمل:
+                    <br>• جميع المنتجات والأماكن والمستودعات
+                    <br>• جميع العمليات (إضافة، تعديل، حذف، سحب، إرجاع)
+                    <br>• جميع الطلبات والمرتجعات
+                    <br>• جميع سجلات أنشطة المستخدمين
+                    <br>• جميع ملفات المستخدمين
+                    <br>• جميع التقارير اليومية
+                    <br><br>يمكنك استخدام هذا الملف لاستعادة البيانات الكاملة لاحقاً.
                 </p>
                 <button onclick="exportBackup()" class="btn btn--sm btn--success">
                     <span class="icon">📥</span>

@@ -8,4 +8,6 @@ reportlab==4.0.9
 xhtml2pdf==0.2.15
 Pillow==10.3.0
 playwright==1.55.0
+django-ratelimit==4.1.0
+django-extensions==3.2.3
 

@@ -70,6 +70,12 @@ urlpatterns = [
     path('orders/<int:order_id>/', views.order_detail, name='order_detail'),
     path('api/delete-order/<int:order_id>/', views.delete_order, name='delete_order'),
     
+    # المرتجعات
+    path('returns/', views.returns_list, name='returns_list'),
+    path('returns/add/', views.add_return, name='add_return'),
+    path('returns/<int:return_id>/', views.return_detail, name='return_detail'),
+    path('api/process-return/', views.process_return, name='process_return'),
+    
     # تصفير الكميات
     path('api/reset-all-quantities/', views.reset_all_quantities, name='reset_all_quantities'),
     

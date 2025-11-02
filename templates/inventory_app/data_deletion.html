@@ -341,6 +341,34 @@
                         <label for="delete_daily_reports">حذف جميع التقارير اليومية</label>
                         <span class="count">{{ stats.daily_reports }}</span>
                     </div>
+                    
+                    <div class="checkbox-item" onclick="toggleCheckbox('delete_orders')">
+                        <span class="icon">📋</span>
+                        <input type="checkbox" id="delete_orders" name="delete_orders">
+                        <label for="delete_orders">حذف جميع الطلبات</label>
+                        <span class="count">{{ stats.orders }}</span>
+                    </div>
+                    
+                    <div class="checkbox-item" onclick="toggleCheckbox('delete_returns')">
+                        <span class="icon">🔄</span>
+                        <input type="checkbox" id="delete_returns" name="delete_returns">
+                        <label for="delete_returns">حذف جميع المرتجعات</label>
+                        <span class="count">{{ stats.returns }}</span>
+                    </div>
+                    
+                    <div class="checkbox-item" onclick="toggleCheckbox('delete_user_profiles')">
+                        <span class="icon">👤</span>
+                        <input type="checkbox" id="delete_user_profiles" name="delete_user_profiles">
+                        <label for="delete_user_profiles">حذف جميع ملفات المستخدمين</label>
+                        <span class="count">{{ stats.user_profiles }}</span>
+                    </div>
+                    
+                    <div class="checkbox-item" onclick="toggleCheckbox('delete_user_activity_logs')">
+                        <span class="icon">📝</span>
+                        <input type="checkbox" id="delete_user_activity_logs" name="delete_user_activity_logs">
+                        <label for="delete_user_activity_logs">حذف جميع سجلات أنشطة المستخدمين</label>
+                        <span class="count">{{ stats.user_activity_logs }}</span>
+                    </div>
                 </div>
                 
                 <button class="btn btn--sm btn--danger" onclick="confirmDeletion()" style="width: 100%;">
@@ -401,7 +429,11 @@
                 delete_warehouses: document.getElementById('delete_warehouses').checked,
                 delete_locations: document.getElementById('delete_locations').checked,
                 delete_audit_logs: document.getElementById('delete_audit_logs').checked,
-                delete_daily_reports: document.getElementById('delete_daily_reports').checked
+                delete_daily_reports: document.getElementById('delete_daily_reports').checked,
+                delete_orders: document.getElementById('delete_orders').checked,
+                delete_returns: document.getElementById('delete_returns').checked,
+                delete_user_profiles: document.getElementById('delete_user_profiles').checked,
+                delete_user_activity_logs: document.getElementById('delete_user_activity_logs').checked
             };
             
             // إرسال الطلب

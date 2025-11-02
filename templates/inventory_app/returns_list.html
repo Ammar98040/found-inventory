@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>سجل المرتجعات - نظام إدارة المستودع</title>
+    {% load static %}
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    <link rel="stylesheet" href="{% static 'css/sidebar.css' %}">
+    
+    <style>
+        .returns-container {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: var(--shadow-lg);
+        }
+        
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+        
+        .stats-banner {
+            background: linear-gradient(135deg, #25614d 0%, #1d4bea 100%);
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 30px;
+            color: white;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+        }
+        
+        .stat-item {
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 2.5rem;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        
+        .stat-label {
+            font-size: 0.85rem;
+            color: #f0f4fa;
+            margin-top: 4px;
+        }
+        
+        .returns-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 20px;
+        }
+        
+        .return-card {
+            background: white;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 20px;
+            transition: all 0.3s;
+            position: relative;
+        }
+        
+        .return-card:hover {
+            border-color: #10b981;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transform: translateY(-2px);
+        }
+        
+        .return-number {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #10b981;
+            margin-bottom: 10px;
+            font-family: monospace;
+        }
+        
+        .return-details {
+            margin: 15px 0;
+        }
+        
+        .return-detail-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #f1f5f9;
+        }
+        
+        .return-detail-item:last-child {
+            border-bottom: none;
+        }
+        
+        .detail-label {
+            color: #64748b;
+            font-size: 0.9rem;
+        }
+        
+        .detail-value {
+            font-weight: bold;
+            color: #1e293b;
+        }
+        
+        .return-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 2px solid #f1f5f9;
+        }
+        
+        .return-date {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            font-size: 0.8rem;
+            color: #64748b;
+            background: #f1f5f9;
+            padding: 5px 10px;
+            border-radius: 20px;
+        }
+        
+        .btn-sm {
+            padding: 8px 16px;
+            font-size: 0.9rem;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #64748b;
+        }
+        
+        .empty-state-icon {
+            font-size: 4rem;
+            margin-bottom: 20px;
+        }
+        
+        @media (max-width: 768px) {
+            .returns-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .page-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            
+            .stats-banner {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="page-header">
+            <h1>🔄 سجل المرتجعات</h1>
+            <div>
+                <a href="{% url 'inventory_app:add_return' %}" class="btn btn-primary">
+                    <span class="btn-icon">➕</span>
+                    إضافة مرتجع جديد
+                </a>
+                <a href="/" class="btn btn-secondary">
+                    <span class="btn-icon">🏠</span>
+                    الرئيسية
+                </a>
+            </div>
+        </div>
+        
+        <!-- إحصائيات -->
+        <div class="stats-banner">
+            <div class="stat-item">
+                <div class="stat-value">{{ total_returns }}</div>
+                <div class="stat-label">إجمالي المرتجعات</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value">{{ today_returns }}</div>
+                <div class="stat-label">مرتجعات اليوم</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value">{{ total_quantities_returned }}</div>
+                <div class="stat-label">إجمالي الكميات المرتجعة</div>
+            </div>
+        </div>
+        
+        <div class="returns-container">
+            {% if returns %}
+                <div class="returns-grid">
+                    {% for return in returns %}
+                        <div class="return-card">
+                            <div class="return-date">{{ return.created_at|date:"Y-m-d H:i" }}</div>
+                            <div class="return-number">#{{ return.return_number }}</div>
+                            
+                            <div class="return-details">
+                                <div class="return-detail-item">
+                                    <span class="detail-label">عدد المنتجات:</span>
+                                    <span class="detail-value">{{ return.total_products }}</span>
+                                </div>
+                                <div class="return-detail-item">
+                                    <span class="detail-label">إجمالي الكميات:</span>
+                                    <span class="detail-value">{{ return.total_quantities }}</span>
+                                </div>
+                                {% if return.returned_by %}
+                                <div class="return-detail-item">
+                                    <span class="detail-label">من:</span>
+                                    <span class="detail-value">{{ return.returned_by }}</span>
+                                </div>
+                                {% endif %}
+                                {% if return.return_reason %}
+                                <div class="return-detail-item">
+                                    <span class="detail-label">سبب الإرجاع:</span>
+                                    <span class="detail-value">{{ return.return_reason|truncatewords:5 }}</span>
+                                </div>
+                                {% endif %}
+                                <div class="return-detail-item">
+                                    <span class="detail-label">المستخدم:</span>
+                                    <span class="detail-value">{{ return.user }}</span>
+                                </div>
+                            </div>
+                            
+                            <div class="return-actions">
+                                <a href="{% url 'inventory_app:return_detail' return.id %}" class="btn btn-primary btn-sm" style="flex: 1;">
+                                    <span class="btn-icon">👁️</span>
+                                    التفاصيل
+                                </a>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="empty-state">
+                    <div class="empty-state-icon">📭</div>
+                    <h3>لا توجد مرتجعات</h3>
+                    <p>لم يتم تسجيل أي مرتجعات حتى الآن</p>
+                    <a href="{% url 'inventory_app:add_return' %}" class="btn btn-primary" style="margin-top: 20px;">
+                        إضافة مرتجع جديد
+                    </a>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+    
+    
+    <!-- Sidebar -->
+    <button id="sidebar-toggle" onclick="toggleSidebar()">☰</button>
+    <div id="sidebar-overlay"></div>
+    <div id="main-sidebar">
+        <div class="sidebar-header">
+            <h2>🧭 القوائم</h2>
+            <button class="sidebar-close" onclick="toggleSidebar()">×</button>
+        </div>
+        
+        <div class="sidebar-search">
+            <input type="text" id="sidebar-search-input" placeholder="🔍 ابحث في القوائم..." autocomplete="off">
+            <div id="sidebar-search-results"></div>
+        </div>
+        
+        <div class="sidebar-content" id="sidebar-main-content">
+            <div class="sidebar-section">
+                <div class="sidebar-title">الرئيسية</div>
+                <a href="/" class="sidebar-link">
+                    <span class="icon">🔍</span>
+                    <span class="text">البحث عن المنتجات</span>
+                </a>
+                <a href="/dashboard/" class="sidebar-link">
+                    <span class="icon">📊</span>
+                    <span class="text">لوحة التحكم</span>
+                </a>
+            </div>
+            
+            <div class="sidebar-section">
+                <div class="sidebar-title">إدارة المنتجات</div>
+                <a href="/products/" class="sidebar-link">
+                    <span class="icon">📦</span>
+                    <span class="text">قائمة المنتجات</span>
+                </a>
+                <a href="/products/add/" class="sidebar-link">
+                    <span class="icon">➕</span>
+                    <span class="text">إضافة منتج جديد</span>
+                </a>
+            </div>
+            
+            <div class="sidebar-section">
+                <div class="sidebar-title">المستودع</div>
+                <a href="/manage/" class="sidebar-link">
+                    <span class="icon">⚙️</span>
+                    <span class="text">إدارة المستودع</span>
+                </a>
+                <a href="/locations/" class="sidebar-link">
+                    <span class="icon">📍</span>
+                    <span class="text">الأماكن</span>
+                </a>
+            </div>
+            
+            <div class="sidebar-section">
+                <div class="sidebar-title">السجلات</div>
+                <a href="{% url 'inventory_app:orders_list' %}" class="sidebar-link">
+                    <span class="icon">📋</span>
+                    <span class="text">سجل الطلبات</span>
+                </a>
+                <a href="{% url 'inventory_app:returns_list' %}" class="sidebar-link active">
+                    <span class="icon">🔄</span>
+                    <span class="text">المرتجعات</span>
+                </a>
+                <a href="{% url 'inventory_app:audit_logs' %}" class="sidebar-link">
+                    <span class="icon">📋</span>
+                    <span class="text">سجلات العمليات</span>
+                </a>
+            </div>
+        </div>
+    </div>
+    <script src="{% static 'js/sidebar.js' %}"></script>
+</body>
+</html>
+
