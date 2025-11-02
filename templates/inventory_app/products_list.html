@@ -137,6 +137,10 @@
                     <span class="icon">➕</span>
                     <span>إضافة منتج</span>
                 </a>
+                <button onclick="resetAllQuantities()" class="btn btn--sm" style="background: #f59e0b; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 14px;">
+                    <span class="icon">🔄</span>
+                    <span>تصفير الكميات</span>
+                </button>
             </div>
         </div>
 
@@ -513,6 +517,34 @@
             .catch(error => {
                 console.error('Error:', error);
                 alert('حدث خطأ أثناء حذف المنتجات');
+            });
+        }
+        
+        // تصفير جميع الكميات
+        function resetAllQuantities() {
+            if (!confirm('هل أنت متأكد من تصفير جميع الكميات في جميع المنتجات؟\n\nهذه العملية لا يمكن التراجع عنها!')) {
+                return;
+            }
+            
+            fetch('/api/reset-all-quantities/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert(`✅ ${data.message}`);
+                    window.location.reload();
+                } else {
+                    alert('❌ خطأ: ' + data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('حدث خطأ أثناء تصفير الكميات');
             });
         }
     </script>

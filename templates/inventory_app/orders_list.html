@@ -144,7 +144,7 @@
                     {% for order in orders %}
                         <div class="order-card">
                             <div class="order-date">{{ order.created_at|date:"Y-m-d H:i" }}</div>
-                            <div class="order-number">{{ order.order_number }}</div>
+                            <div class="order-number">#{{ forloop.counter }}{% if order.recipient_name %} - {{ order.recipient_name }}{% endif %}</div>
                             
                             <div class="order-details">
                                 <div class="order-detail-item">

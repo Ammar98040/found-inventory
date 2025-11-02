@@ -1,0 +1,772 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>لوحة تحكم المسؤول - قلب العرب</title>
+    {% load static %}
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    <link rel="stylesheet" href="{% static 'css/sidebar.css' %}">
+    <style>
+        .dashboard-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 15px;
+            margin-bottom: 30px;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        
+        .stat-card .stat-value {
+            font-size: 36px;
+            font-weight: bold;
+            color: #667eea;
+            margin: 10px 0;
+        }
+        
+        .stat-card .stat-label {
+            color: #666;
+            font-size: 14px;
+        }
+        
+        .staff-table {
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .staff-table table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        .staff-table th {
+            background: #667eea;
+            color: white;
+            padding: 15px;
+            text-align: right;
+            font-weight: bold;
+        }
+        
+        .staff-table td {
+            padding: 15px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .staff-table tr:hover {
+            background: #f9f9f9;
+        }
+        
+        .activity-badge {
+            display: inline-block;
+            padding: 5px 10px;
+            background: #10b981;
+            color: white;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        
+        .recent-logs {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        .log-item {
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .log-item:last-child {
+            border-bottom: none;
+        }
+        
+        .btn-create {
+            background: #10b981;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 8px;
+            text-decoration: none;
+            display: inline-block;
+            margin-bottom: 20px;
+        }
+        
+        .btn-create:hover {
+            background: #059669;
+        }
+        
+        /* أزرار الإجراءات */
+        .action-btn-small {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+            transition: all 0.2s ease;
+            white-space: nowrap;
+        }
+        
+        .action-btn-small .btn-text {
+            display: inline;
+        }
+        
+        .action-btn-small .btn-icon {
+            display: inline;
+        }
+        
+        /* تصميم متجاوب للشاشات الصغيرة */
+        @media screen and (max-width: 768px) {
+            .staff-table {
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+            
+            .staff-table table {
+                min-width: 800px;
+            }
+            
+            .staff-table th,
+            .staff-table td {
+                padding: 10px 8px;
+                font-size: 13px;
+            }
+            
+            /* إخفاء بعض الأعمدة في الشاشات الصغيرة */
+            .staff-table th:nth-child(3),
+            .staff-table td:nth-child(3),
+            .staff-table th:nth-child(4),
+            .staff-table td:nth-child(4) {
+                display: none;
+            }
+            
+            /* إخفاء النصوص من الأزرار وإظهار الأيقونات فقط */
+            .action-btn-small .btn-text {
+                display: none;
+            }
+            
+            .action-btn-small {
+                min-width: 36px;
+                width: 36px;
+                height: 36px;
+                padding: 8px;
+                border-radius: 8px;
+                font-size: 16px;
+            }
+            
+            .action-btn-small .btn-icon {
+                margin: 0;
+            }
+            
+            /* تحسين عرض العنوان والعنوان الفرعي */
+            .dashboard-header h1 {
+                font-size: 24px;
+            }
+            
+            .dashboard-header p {
+                font-size: 14px;
+            }
+            
+            /* تحسين الشبكة الإحصائية */
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 15px;
+            }
+            
+            .stat-card .stat-value {
+                font-size: 28px;
+            }
+            
+            /* تحسين عنوان القائمة */
+            h2 {
+                font-size: 18px;
+            }
+            
+            .btn-create {
+                padding: 8px 16px;
+                font-size: 13px;
+            }
+        }
+        
+        @media screen and (max-width: 480px) {
+            .staff-table th,
+            .staff-table td {
+                padding: 8px 5px;
+                font-size: 12px;
+            }
+            
+            /* إخفاء المزيد من الأعمدة في الشاشات الصغيرة جداً */
+            .staff-table th:nth-child(5),
+            .staff-table td:nth-child(5),
+            .staff-table th:nth-child(6),
+            .staff-table td:nth-child(6) {
+                display: none;
+            }
+            
+            .action-btn-small {
+                min-width: 32px;
+                width: 32px;
+                height: 32px;
+                padding: 6px;
+                font-size: 14px;
+            }
+            
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .dashboard-header {
+                padding: 20px;
+            }
+            
+            .dashboard-header h1 {
+                font-size: 20px;
+            }
+            
+            /* تحسين قسم التفاصيل في الشاشات الصغيرة */
+            .staff-details-row td {
+                padding: 15px !important;
+            }
+            
+            .staff-details-row h3 {
+                font-size: 16px;
+            }
+            
+            .staff-details-row table {
+                font-size: 11px;
+            }
+            
+            .staff-details-row th,
+            .staff-details-row td {
+                padding: 6px 4px;
+            }
+        }
+        
+        /* تحسينات إضافية للشاشات المتوسطة */
+        @media screen and (max-width: 992px) and (min-width: 769px) {
+            .staff-table th,
+            .staff-table td {
+                padding: 12px 10px;
+                font-size: 13px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <button id="sidebar-toggle" onclick="toggleSidebar()">☰</button>
+    <div id="sidebar-overlay" onclick="toggleSidebar()"></div>
+    <div id="main-sidebar">
+        <div class="sidebar-header">
+            <h2>🧭 القوائم</h2>
+            <button class="sidebar-close" onclick="toggleSidebar()">×</button>
+        </div>
+        <div class="sidebar-content">
+            <div class="sidebar-section">
+                <div class="sidebar-title">الرئيسية</div>
+                <a href="{% url 'inventory_app:home' %}" class="sidebar-link">
+                    <span class="icon">🔍</span>
+                    <span class="text">البحث عن المنتجات</span>
+                </a>
+                <a href="{% url 'inventory_app:dashboard' %}" class="sidebar-link">
+                    <span class="icon">📊</span>
+                    <span class="text">لوحة التحكم</span>
+                </a>
+                <a href="{% url 'inventory_app:admin_dashboard' %}" class="sidebar-link active">
+                    <span class="icon">🎛️</span>
+                    <span class="text">لوحة المسؤول</span>
+                </a>
+            </div>
+            
+            <div class="sidebar-section">
+                <div class="sidebar-title">إدارة المنتجات</div>
+                <a href="{% url 'inventory_app:products_list' %}" class="sidebar-link">
+                    <span class="icon">📦</span>
+                    <span class="text">قائمة المنتجات</span>
+                </a>
+                <a href="{% url 'inventory_app:product_add' %}" class="sidebar-link">
+                    <span class="icon">➕</span>
+                    <span class="text">إضافة منتج جديد</span>
+                </a>
+            </div>
+            
+            <div class="sidebar-section">
+                <div class="sidebar-title">المستودع</div>
+                <a href="{% url 'inventory_app:manage_warehouse' %}" class="sidebar-link">
+                    <span class="icon">⚙️</span>
+                    <span class="text">إدارة المستودع</span>
+                </a>
+                <a href="{% url 'inventory_app:locations_list' %}" class="sidebar-link">
+                    <span class="icon">📍</span>
+                    <span class="text">الأماكن</span>
+                </a>
+            </div>
+            
+            <div class="sidebar-section">
+                <div class="sidebar-title">إدارة المستخدمين</div>
+                <a href="{% url 'inventory_app:register_staff' %}" class="sidebar-link">
+                    <span class="icon">👤</span>
+                    <span class="text">إنشاء حساب موظف</span>
+                </a>
+            </div>
+            
+            <div class="sidebar-section">
+                <div class="sidebar-title">السجلات</div>
+                <a href="{% url 'inventory_app:audit_logs' %}" class="sidebar-link">
+                    <span class="icon">📋</span>
+                    <span class="text">سجلات العمليات</span>
+                </a>
+            </div>
+            
+            <div class="sidebar-section">
+                <div class="sidebar-title">التقارير</div>
+                <a href="{% url 'inventory_app:daily_reports' %}" class="sidebar-link">
+                    <span class="icon">📊</span>
+                    <span class="text">التقارير اليومية</span>
+                </a>
+                <a href="{% url 'inventory_app:daily_reports_archive' %}" class="sidebar-link">
+                    <span class="icon">📚</span>
+                    <span class="text">سجل التقارير</span>
+                </a>
+            </div>
+            
+            <div class="sidebar-section">
+                <div class="sidebar-title">الصيانة</div>
+                <a href="{% url 'inventory_app:backup_restore' %}" class="sidebar-link">
+                    <span class="icon">💾</span>
+                    <span class="text">النسخ الاحتياطي</span>
+                </a>
+                <a href="{% url 'inventory_app:data_deletion' %}" class="sidebar-link">
+                    <span class="icon">🗑️</span>
+                    <span class="text">حذف البيانات</span>
+                </a>
+            </div>
+            
+            <div class="sidebar-section">
+                <div class="sidebar-title">الطـلبات</div>
+                <a href="{% url 'inventory_app:orders_list' %}" class="sidebar-link">
+                    <span class="icon">📋</span>
+                    <span class="text">سجل الطلبات</span>
+                </a>
+            </div>
+            
+            <div class="sidebar-section">
+                <a href="/logout/" class="sidebar-link" style="color: #ef4444;">
+                    <span class="icon">🚪</span>
+                    <span class="text">تسجيل الخروج</span>
+                </a>
+            </div>
+        </div>
+    </div>
+    <div class="container">
+        <div class="dashboard-header">
+            <h1>🎛️ لوحة تحكم المسؤول</h1>
+            <p>تتبع شامل لجميع الموظفين والأنشطة</p>
+        </div>
+        
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-label">عدد الموظفين</div>
+                <div class="stat-value">{{ total_staff }}</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">عدد المسؤولين</div>
+                <div class="stat-value">{{ total_admins }}</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">أنشطة اليوم</div>
+                <div class="stat-value">{{ today_activities }}</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">أنشطة آخر 7 أيام</div>
+                <div class="stat-value">{{ recent_activities }}</div>
+            </div>
+        </div>
+        
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 15px;">
+            <h2 style="margin: 0;">👥 قائمة الموظفين</h2>
+            <a href="{% url 'inventory_app:register_staff' %}" class="btn-create">➕ إنشاء حساب موظف جديد</a>
+        </div>
+        
+        <div class="staff-table">
+            <table>
+                <thead>
+                    <tr>
+                        <th>اسم المستخدم</th>
+                        <th>النوع</th>
+                        <th>أنشطة اليوم</th>
+                        <th>أنشطة آخر 7 أيام</th>
+                        <th>آخر نشاط</th>
+                        <th>آخر IP</th>
+                        <th>الحالة</th>
+                        <th>الإجراءات</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for member in staff_members %}
+                    <tr class="staff-main-row" data-user-id="{{ member.user.id }}" style="cursor: pointer;">
+                        <td><strong>{{ member.user.username }}</strong></td>
+                        <td>{{ member.profile.get_user_type_display }}</td>
+                        <td>
+                            <span class="activity-badge">{{ member.today_activities }}</span>
+                        </td>
+                        <td>{{ member.week_activities }}</td>
+                        <td>
+                            {% if member.last_activity %}
+                                {{ member.last_activity.created_at|date:"Y-m-d H:i" }}
+                            {% else %}
+                                <span style="color: #999;">لا يوجد</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span style="color: #666; font-family: monospace;">{{ member.last_login_ip|default:"-" }}</span>
+                        </td>
+                        <td>
+                            {% if member.profile.is_active %}
+                                <span style="color: #10b981;">✅ نشط</span>
+                            {% else %}
+                                <span style="color: #ef4444;">❌ معطل</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                                <a href="{% url 'inventory_app:view_staff' member.user.id %}" 
+                                   class="action-btn-small" 
+                                   title="عرض تفاصيل الموظف"
+                                   style="background: #3b82f6; color: white; padding: 5px 12px; border-radius: 6px; text-decoration: none; font-size: 12px;">
+                                    <span class="btn-icon">👁️</span>
+                                    <span class="btn-text">عرض</span>
+                                </a>
+                                <a href="{% url 'inventory_app:edit_staff' member.user.id %}" 
+                                   class="action-btn-small" 
+                                   title="تعديل بيانات الموظف"
+                                   style="background: #10b981; color: white; padding: 5px 12px; border-radius: 6px; text-decoration: none; font-size: 12px;">
+                                    <span class="btn-icon">✏️</span>
+                                    <span class="btn-text">تعديل</span>
+                                </a>
+                                {% if member.profile.is_active %}
+                                <button type="button"
+                                        data-user-id="{{ member.user.id }}"
+                                        data-is-active="true"
+                                        class="action-btn-small toggle-active-btn"
+                                        title="تعطيل الموظف"
+                                        style="background: #f59e0b; color: white; padding: 5px 12px; border-radius: 6px; border: none; cursor: pointer; font-size: 12px;">
+                                    <span class="btn-icon">⏸️</span>
+                                    <span class="btn-text">تعطيل</span>
+                                </button>
+                                {% else %}
+                                <button type="button"
+                                        data-user-id="{{ member.user.id }}"
+                                        data-is-active="false"
+                                        class="action-btn-small toggle-active-btn"
+                                        title="تفعيل الموظف"
+                                        style="background: #10b981; color: white; padding: 5px 12px; border-radius: 6px; border: none; cursor: pointer; font-size: 12px;">
+                                    <span class="btn-icon">▶️</span>
+                                    <span class="btn-text">تفعيل</span>
+                                </button>
+                                {% endif %}
+                                <button type="button"
+                                        data-user-id="{{ member.user.id }}"
+                                        data-username="{{ member.user.username }}"
+                                        class="action-btn-small delete-staff-btn"
+                                        title="حذف الموظف"
+                                        style="background: #ef4444; color: white; padding: 5px 12px; border-radius: 6px; border: none; cursor: pointer; font-size: 12px;">
+                                    <span class="btn-icon">🗑️</span>
+                                    <span class="btn-text">حذف</span>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    <!-- قسم تفاصيل العمليات للموظف -->
+                    <tr class="staff-details-row" data-user-id="{{ member.user.id }}" style="display: none;">
+                        <td colspan="8" style="background: #f9fafb; padding: 20px;">
+                            <div style="margin-bottom: 15px;">
+                                <h3 style="margin: 0 0 15px 0; color: #667eea;">👤 تفاصيل عمليات الموظف: {{ member.user.username }}</h3>
+                                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin-bottom: 20px;">
+                                    <div style="background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                                        <div style="font-size: 12px; color: #666; margin-bottom: 5px;">عمليات اليوم</div>
+                                        <div style="font-size: 24px; font-weight: bold; color: #667eea;">{{ member.today_operations }}</div>
+                                    </div>
+                                    <div style="background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                                        <div style="font-size: 12px; color: #666; margin-bottom: 5px;">عمليات آخر 7 أيام</div>
+                                        <div style="font-size: 24px; font-weight: bold; color: #667eea;">{{ member.week_operations }}</div>
+                                    </div>
+                                    {% if member.last_operation %}
+                                    <div style="background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                                        <div style="font-size: 12px; color: #666; margin-bottom: 5px;">آخر عملية</div>
+                                        <div style="font-size: 14px; font-weight: bold; color: #333;">{{ member.last_operation.created_at|date:"Y-m-d H:i" }}</div>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                                
+                                {% if member.operation_stats %}
+                                <div style="margin-bottom: 20px;">
+                                    <h4 style="margin: 0 0 10px 0; color: #333; font-size: 14px;">إحصائيات العمليات:</h4>
+                                    <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+                                        {% for op_name, count in member.operation_stats.items %}
+                                        <span style="background: #667eea; color: white; padding: 5px 12px; border-radius: 15px; font-size: 12px;">
+                                            {{ op_name }}: {{ count }}
+                                        </span>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                                {% endif %}
+                                
+                                {% if member.recent_operations %}
+                                <div>
+                                    <h4 style="margin: 0 0 15px 0; color: #333; font-size: 14px;">آخر 10 عمليات:</h4>
+                                    <div style="background: white; border-radius: 8px; overflow: hidden;">
+                                        <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
+                                            <thead>
+                                                <tr style="background: #667eea; color: white;">
+                                                    <th style="padding: 10px; text-align: right;">التاريخ</th>
+                                                    <th style="padding: 10px; text-align: right;">النوع</th>
+                                                    <th style="padding: 10px; text-align: right;">رقم المنتج</th>
+                                                    <th style="padding: 10px; text-align: right;">الكمية قبل</th>
+                                                    <th style="padding: 10px; text-align: right;">الكمية بعد</th>
+                                                    <th style="padding: 10px; text-align: right;">ملاحظات</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {% for op in member.recent_operations %}
+                                                <tr style="border-bottom: 1px solid #eee;">
+                                                    <td style="padding: 8px;">{{ op.created_at|date:"Y-m-d H:i" }}</td>
+                                                    <td style="padding: 8px;">
+                                                        {% if op.action == 'added' %}
+                                                            <span style="background: #10b981; color: white; padding: 3px 8px; border-radius: 10px; font-size: 11px;">➕ إضافة</span>
+                                                        {% elif op.action == 'updated' %}
+                                                            <span style="background: #f59e0b; color: white; padding: 3px 8px; border-radius: 10px; font-size: 11px;">✏️ تعديل</span>
+                                                        {% elif op.action == 'deleted' %}
+                                                            <span style="background: #ef4444; color: white; padding: 3px 8px; border-radius: 10px; font-size: 11px;">🗑️ حذف</span>
+                                                        {% elif op.action == 'quantity_taken' %}
+                                                            <span style="background: #3b82f6; color: white; padding: 3px 8px; border-radius: 10px; font-size: 11px;">📤 سحب</span>
+                                                        {% elif op.action == 'quantity_added' %}
+                                                            <span style="background: #10b981; color: white; padding: 3px 8px; border-radius: 10px; font-size: 11px;">📥 إضافة</span>
+                                                        {% elif op.action == 'location_assigned' %}
+                                                            <span style="background: #8b5cf6; color: white; padding: 3px 8px; border-radius: 10px; font-size: 11px;">📍 ربط</span>
+                                                        {% else %}
+                                                            <span style="background: #6b7280; color: white; padding: 3px 8px; border-radius: 10px; font-size: 11px;">{{ op.get_action_display }}</span>
+                                                        {% endif %}
+                                                    </td>
+                                                    <td style="padding: 8px; font-weight: bold;">{{ op.product_number }}</td>
+                                                    <td style="padding: 8px;">{{ op.quantity_before|default:"-" }}</td>
+                                                    <td style="padding: 8px;">{{ op.quantity_after|default:"-" }}</td>
+                                                    <td style="padding: 8px; color: #666; font-size: 11px;">{{ op.notes|truncatewords:5|default:"-" }}</td>
+                                                </tr>
+                                                {% endfor %}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    <div style="margin-top: 10px; text-align: left;">
+                                        <a href="{% url 'inventory_app:view_staff' member.user.id %}" style="color: #667eea; text-decoration: none; font-size: 12px;">
+                                            عرض جميع العمليات ←
+                                        </a>
+                                    </div>
+                                </div>
+                                {% else %}
+                                <div style="text-align: center; padding: 20px; color: #999;">
+                                    لا توجد عمليات مسجلة لهذا الموظف
+                                </div>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="8" style="text-align: center; padding: 30px; color: #999;">
+                            لا يوجد موظفين بعد
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <h2 style="margin-top: 30px; margin-bottom: 20px;">📋 آخر الأنشطة</h2>
+        <div class="recent-logs">
+            {% for log in recent_logs %}
+            <div class="log-item">
+                <div>
+                    <strong>{{ log.user.username }}</strong> - 
+                    {{ log.get_action_display }} - 
+                    <span style="color: #666;">{{ log.description }}</span>
+                </div>
+                <div style="color: #999; font-size: 12px;">
+                    {{ log.created_at|date:"Y-m-d H:i" }}
+                </div>
+            </div>
+            {% empty %}
+            <div style="text-align: center; padding: 30px; color: #999;">
+                لا توجد أنشطة مسجلة
+            </div>
+            {% endfor %}
+        </div>
+        
+        <div style="margin-top: 30px;">
+            <h2>📊 إحصائيات الأنشطة حسب النوع</h2>
+            <div class="stats-grid" style="margin-top: 20px;">
+                {% for action_name, count in activity_stats.items %}
+                <div class="stat-card">
+                    <div class="stat-label">{{ action_name }}</div>
+                    <div class="stat-value">{{ count }}</div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    <script src="{% static 'js/sidebar.js' %}"></script>
+    <script>
+        // تفعيل/تعطيل الموظف
+        document.addEventListener('DOMContentLoaded', function() {
+            const toggleButtons = document.querySelectorAll('.toggle-active-btn');
+            toggleButtons.forEach(function(button) {
+                button.addEventListener('click', function() {
+                    const userId = this.getAttribute('data-user-id');
+                    const isActive = this.getAttribute('data-is-active') === 'true';
+                    const action = isActive ? 'تعطيل' : 'تفعيل';
+                    
+                    if (!confirm('هل أنت متأكد من ' + action + ' هذا الموظف؟')) {
+                        return;
+                    }
+                    
+                    fetch('/api/toggle-staff-active/' + userId + '/', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': '{{ csrf_token }}'
+                        }
+                    })
+                    .then(function(response) {
+                        return response.json();
+                    })
+                    .then(function(data) {
+                        if (data.success) {
+                            alert('✅ ' + data.message);
+                            window.location.reload();
+                        } else {
+                            alert('❌ خطأ: ' + data.error);
+                        }
+                    })
+                    .catch(function(error) {
+                        console.error('Error:', error);
+                        alert('حدث خطأ أثناء التحديث');
+                    });
+                });
+            });
+            
+            // حذف الموظف
+            const deleteButtons = document.querySelectorAll('.delete-staff-btn');
+            deleteButtons.forEach(function(button) {
+                button.addEventListener('click', function() {
+                    const userId = this.getAttribute('data-user-id');
+                    const username = this.getAttribute('data-username');
+                    
+                    if (!confirm('هل أنت متأكد من حذف الموظف "' + username + '"؟\n\nهذه العملية لا يمكن التراجع عنها!')) {
+                        return;
+                    }
+                    
+                    fetch('/api/delete-staff/' + userId + '/', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': '{{ csrf_token }}'
+                        }
+                    })
+                    .then(function(response) {
+                        return response.json();
+                    })
+                    .then(function(data) {
+                        if (data.success) {
+                            alert('✅ ' + data.message);
+                            window.location.reload();
+                        } else {
+                            alert('❌ خطأ: ' + data.error);
+                        }
+                    })
+                    .catch(function(error) {
+                        console.error('Error:', error);
+                        alert('حدث خطأ أثناء الحذف');
+                    });
+                });
+            });
+        });
+        
+        // إظهار/إخفاء تفاصيل الموظف
+        function toggleStaffDetails(userId) {
+            const detailsRow = document.querySelector('.staff-details-row[data-user-id="' + userId + '"]');
+            if (!detailsRow) return;
+            
+            if (detailsRow.style.display === 'none' || detailsRow.style.display === '') {
+                // إخفاء جميع الصفوف الأخرى أولاً
+                document.querySelectorAll('.staff-details-row').forEach(function(row) {
+                    row.style.display = 'none';
+                });
+                // إظهار الصف المطلوب
+                detailsRow.style.display = '';
+            } else {
+                detailsRow.style.display = 'none';
+            }
+        }
+    </script>
+    <script>
+        // إضافة event listeners لصفوف الموظفين
+        document.addEventListener('DOMContentLoaded', function() {
+            const mainRows = document.querySelectorAll('.staff-main-row');
+            
+            mainRows.forEach(function(mainRow) {
+                const userId = mainRow.getAttribute('data-user-id');
+                
+                // منع النقر على الأزرار من فتح التفاصيل
+                const buttons = mainRow.querySelectorAll('button, a');
+                buttons.forEach(function(button) {
+                    button.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                    });
+                });
+                
+                // النقر على الصف لفتح/إغلاق التفاصيل
+                mainRow.addEventListener('click', function() {
+                    toggleStaffDetails(userId);
+                });
+            });
+        });
+        
+        // إظهار/إخفاء تفاصيل الموظف
+        function toggleStaffDetails(userId) {
+            const detailsRow = document.querySelector('.staff-details-row[data-user-id="' + userId + '"]');
+            if (!detailsRow) return;
+            
+            if (detailsRow.style.display === 'none' || detailsRow.style.display === '') {
+                // إخفاء جميع الصفوف الأخرى أولاً
+                document.querySelectorAll('.staff-details-row').forEach(function(row) {
+                    row.style.display = 'none';
+                });
+                // إظهار الصف المطلوب
+                detailsRow.style.display = '';
+            } else {
+                detailsRow.style.display = 'none';
+            }
+        }
+    </script>
+</body>
+</html>
+

@@ -2,20 +2,38 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.http import JsonResponse, HttpResponse
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth import authenticate, login as auth_login, logout as auth_logout
+from django.contrib.auth.models import User
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 from django.db import transaction
 from django.db import models as db_models
-from .models import Product, Location, Warehouse, AuditLog, DailyReportArchive, Order
+from .models import Product, Location, Warehouse, AuditLog, DailyReportArchive, Order, UserProfile, UserActivityLog
+from .decorators import admin_required, staff_required, exclude_maintenance, exclude_admin_dashboard, get_user_type, is_admin
 import json
 from django.core import serializers
-from datetime import datetime
+from datetime import datetime, timedelta
+from django.utils import timezone
 
 
 @login_required
 def home(request):
     """الصفحة الرئيسية - البحث عن المنتجات"""
-    return render(request, 'inventory_app/home.html')
+    user = request.user
+    user_profile = None
+    user_type_display = 'موظف'
+    
+    if hasattr(user, 'user_profile'):
+        user_profile = user.user_profile
+        user_type_display = user_profile.get_user_type_display()
+    elif user.is_superuser:
+        user_type_display = 'مسؤول'
+    
+    return render(request, 'inventory_app/home.html', {
+        'user': user,
+        'user_profile': user_profile,
+        'user_type_display': user_type_display
+    })
 
 
 @csrf_exempt
@@ -26,6 +44,7 @@ def confirm_products(request):
         try:
             data = json.loads(request.body)
             products_list = data.get('products', [])
+            recipient_name = data.get('recipient_name', '').strip()
             
             # Extract product numbers for efficient batch query
             product_numbers = [item.get('number', '').strip() for item in products_list if item.get('number', '').strip()]
@@ -51,8 +70,30 @@ def confirm_products(request):
                         'error': f'المنتج {product_number} غير موجود'
                     })
                 
-                if product.quantity >= requested_quantity:
-                    old_quantity = product.quantity
+                old_quantity = product.quantity
+                
+                # إذا كانت الكمية المطلوبة 0، نسجل العملية فقط بدون خصم
+                if requested_quantity == 0:
+                    # تسجيل العملية في السجل بدون خصم الكمية
+                    AuditLog.objects.create(
+                        action='quantity_taken',
+                        product=product,
+                        product_number=product_number,
+                        quantity_before=old_quantity,
+                        quantity_after=old_quantity,
+                        quantity_change=0,
+                        notes=f'تم البحث عن المنتج بدون سحب كمية (كمية 0)',
+                        user=request.user.username if request.user.is_authenticated else 'Guest'
+                    )
+                    
+                    updated_products.append({
+                        'product_number': product_number,
+                        'old_quantity': old_quantity,
+                        'new_quantity': old_quantity,
+                        'quantity_taken': 0
+                    })
+                # إذا كانت الكمية المطلوبة أكبر من 0، نتحقق ونخصم
+                elif product.quantity >= requested_quantity:
                     product.quantity -= requested_quantity
                     product.save()
                     
@@ -99,6 +140,7 @@ def confirm_products(request):
                     products_data=updated_products,
                     total_products=total_products,
                     total_quantities=total_quantities,
+                    recipient_name=recipient_name or None,
                     user=request.user.username if request.user.is_authenticated else 'Guest'
                 )
                 
@@ -1632,8 +1674,10 @@ def daily_report_detail(request, report_id):
     })
 
 
+@exclude_maintenance
+@login_required
 def backup_restore_page(request):
-    """صفحة النسخ الاحتياطي والاستعادة"""
+    """صفحة النسخ الاحتياطي والاستعادة - للمسؤول فقط"""
     # إحصائيات البيانات
     stats = {
         'warehouses': Warehouse.objects.count(),
@@ -1687,6 +1731,8 @@ def update_location_notes(request):
 
 @csrf_exempt
 @require_http_methods(["POST"])
+@exclude_maintenance
+@login_required
 def export_backup(request):
     """تصدير النسخ الاحتياطي"""
     try:
@@ -1724,6 +1770,8 @@ def export_backup(request):
 
 @csrf_exempt
 @require_http_methods(["POST"])
+@exclude_maintenance
+@login_required
 def import_backup(request):
     """استيراد النسخ الاحتياطي"""
     try:
@@ -1806,6 +1854,8 @@ def import_backup(request):
         })
 
 
+@exclude_maintenance
+@login_required
 def data_deletion_page(request):
     """صفحة حذف البيانات"""
     # إحصائيات البيانات
@@ -1826,6 +1876,8 @@ def data_deletion_page(request):
 @csrf_exempt
 @require_http_methods(["POST"])
 @transaction.atomic
+@exclude_maintenance
+@login_required
 def delete_data(request):
     """حذف البيانات المحددة"""
     try:
@@ -1929,4 +1981,588 @@ def delete_order(request, order_id):
                 'error': str(e)
             })
     return JsonResponse({'error': 'Invalid request method'}, status=400)
+
+
+@login_required
+@require_http_methods(["POST"])
+@csrf_exempt
+@transaction.atomic
+def reset_all_quantities(request):
+    """تصفير جميع الكميات في قاعدة البيانات"""
+    try:
+        # جلب جميع المنتجات
+        total_products = Product.objects.count()
+        
+        if total_products == 0:
+            return JsonResponse({
+                'success': True,
+                'message': 'لا توجد منتجات في قاعدة البيانات',
+                'count': 0
+            })
+        
+        # تحديث جميع الكميات إلى 0
+        updated_count = Product.objects.update(quantity=0)
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'تم تصفير الكميات لجميع المنتجات بنجاح ({updated_count} منتج)',
+            'count': updated_count
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': f'حدث خطأ أثناء تصفير الكميات: {str(e)}'
+        }, status=500)
+
+
+# ========== نظام المستخدمين والصلاحيات ==========
+
+@require_http_methods(["GET", "POST"])
+def custom_login(request):
+    """تسجيل الدخول مخصص مع تسجيل النشاط"""
+    if request.user.is_authenticated:
+        return redirect('inventory_app:home')
+    
+    if request.method == 'POST':
+        username = request.POST.get('username')
+        password = request.POST.get('password')
+        
+        user = authenticate(request, username=username, password=password)
+        
+        if user is not None:
+            auth_login(request, user)
+            
+            # تسجيل نشاط تسجيل الدخول
+            UserActivityLog.log_activity(
+                user=user,
+                action='login',
+                description=f'تم تسجيل الدخول بنجاح',
+                request=request
+            )
+            
+            # إنشاء UserProfile إذا لم يكن موجوداً
+            if not hasattr(user, 'user_profile'):
+                UserProfile.objects.create(
+                    user=user,
+                    user_type='admin' if user.is_superuser else 'staff'
+                )
+            
+            messages.success(request, f'مرحباً {user.username}!')
+            return redirect('inventory_app:home')
+        else:
+            messages.error(request, 'اسم المستخدم أو كلمة المرور غير صحيحة')
+            # تسجيل محاولة فاشلة
+            if username:
+                try:
+                    failed_user = User.objects.get(username=username)
+                    UserActivityLog.log_activity(
+                        user=failed_user,
+                        action='login',
+                        description=f'محاولة تسجيل دخول فاشلة - كلمة مرور خاطئة',
+                        request=request
+                    )
+                except User.DoesNotExist:
+                    pass
+            
+            return redirect('login')
+    
+    return render(request, 'auth/login.html')
+
+
+@login_required
+def custom_logout(request):
+    """تسجيل الخروج مخصص مع تسجيل النشاط"""
+    user = request.user
+    
+    # تسجيل نشاط تسجيل الخروج
+    UserActivityLog.log_activity(
+        user=user,
+        action='logout',
+        description='تم تسجيل الخروج بنجاح',
+        request=request
+    )
+    
+    auth_logout(request)
+    messages.success(request, 'تم تسجيل الخروج بنجاح')
+    return redirect('login')
+
+
+@admin_required
+@require_http_methods(["GET", "POST"])
+def register_staff(request):
+    """إنشاء حساب موظف جديد - للمسؤول فقط"""
+    if request.method == 'POST':
+        username = request.POST.get('username')
+        password = request.POST.get('password')
+        password_confirm = request.POST.get('password_confirm')
+        email = request.POST.get('email', '')
+        phone = request.POST.get('phone', '')
+        
+        # التحقق من البيانات
+        if not username or not password:
+            messages.error(request, 'اسم المستخدم وكلمة المرور مطلوبان')
+            return render(request, 'auth/register.html')
+        
+        if password != password_confirm:
+            messages.error(request, 'كلمات المرور غير متطابقة')
+            return render(request, 'auth/register.html')
+        
+        if User.objects.filter(username=username).exists():
+            messages.error(request, 'اسم المستخدم موجود بالفعل')
+            return render(request, 'auth/register.html')
+        
+        try:
+            # إنشاء المستخدم
+            with transaction.atomic():
+                user = User.objects.create_user(
+                    username=username,
+                    password=password,
+                    email=email,
+                    is_staff=False  # لا نجعله staff في Django default
+                )
+                
+                # إنشاء UserProfile
+                UserProfile.objects.create(
+                    user=user,
+                    user_type='staff',
+                    phone=phone,
+                    is_active=True
+                )
+                
+                # تسجيل النشاط
+                UserActivityLog.log_activity(
+                    user=request.user,
+                    action='user_created',
+                    description=f'تم إنشاء حساب موظف جديد: {username}',
+                    request=request,
+                    object_type='User',
+                    object_id=user.id,
+                    object_name=username
+                )
+                
+                messages.success(request, f'تم إنشاء حساب الموظف {username} بنجاح')
+                return redirect('inventory_app:admin_dashboard')
+                
+        except Exception as e:
+            messages.error(request, f'حدث خطأ أثناء إنشاء الحساب: {str(e)}')
+            return render(request, 'auth/register.html')
+    
+    return render(request, 'auth/register.html')
+
+
+@admin_required
+@exclude_admin_dashboard
+def admin_dashboard(request):
+    """لوحة تحكم المسؤول - عرض تتبع الموظفين"""
+    # إحصائيات عامة
+    total_staff = UserProfile.objects.filter(user_type='staff', is_active=True).count()
+    total_admins = UserProfile.objects.filter(user_type='admin', is_active=True).count()
+    
+    # إحصائيات الأنشطة (آخر 7 أيام)
+    seven_days_ago = timezone.now() - timedelta(days=7)
+    recent_activities = UserActivityLog.objects.filter(created_at__gte=seven_days_ago).count()
+    today_activities = UserActivityLog.objects.filter(
+        created_at__date=timezone.now().date()
+    ).count()
+    
+    # قائمة الموظفين مع إحصائياتهم (جميع الموظفين - نشط وغير نشط)
+    staff_members = []
+    staff_profiles = UserProfile.objects.filter(user_type='staff').select_related('user')
+    
+    for profile in staff_profiles:
+        user = profile.user
+        # عدد الأنشطة اليوم (UserActivityLog)
+        today_count = UserActivityLog.objects.filter(
+            user=user,
+            created_at__date=timezone.now().date()
+        ).count()
+        
+        # عدد الأنشطة آخر 7 أيام (UserActivityLog)
+        week_count = UserActivityLog.objects.filter(
+            user=user,
+            created_at__gte=seven_days_ago
+        ).count()
+        
+        # عدد العمليات اليوم (AuditLog)
+        today_operations = AuditLog.objects.filter(
+            user=user.username,
+            created_at__date=timezone.now().date()
+        ).count()
+        
+        # عدد العمليات آخر 7 أيام (AuditLog)
+        week_operations = AuditLog.objects.filter(
+            user=user.username,
+            created_at__gte=seven_days_ago
+        ).count()
+        
+        # آخر نشاط (UserActivityLog)
+        last_activity = UserActivityLog.objects.filter(user=user).order_by('-created_at').first()
+        
+        # آخر عملية (AuditLog)
+        last_operation = AuditLog.objects.filter(user=user.username).order_by('-created_at').first()
+        
+        # العمليات الأخيرة (آخر 10 عمليات)
+        recent_operations = AuditLog.objects.filter(user=user.username).select_related('product').order_by('-created_at')[:10]
+        
+        # إحصائيات العمليات حسب النوع
+        operation_stats = {}
+        for action_code, action_name in AuditLog.ACTION_CHOICES:
+            count = AuditLog.objects.filter(user=user.username, action=action_code).count()
+            if count > 0:
+                operation_stats[action_name] = count
+        
+        staff_members.append({
+            'profile': profile,
+            'user': user,
+            'today_activities': today_count,
+            'week_activities': week_count,
+            'today_operations': today_operations,
+            'week_operations': week_operations,
+            'last_activity': last_activity,
+            'last_operation': last_operation,
+            'recent_operations': recent_operations,
+            'operation_stats': operation_stats,
+            'last_login_ip': profile.last_login_ip,
+        })
+    
+    # ترتيب الموظفين حسب النشاط
+    staff_members.sort(key=lambda x: x['today_activities'], reverse=True)
+    
+    # آخر 50 نشاط
+    recent_logs = UserActivityLog.objects.select_related('user').order_by('-created_at')[:50]
+    
+    # إحصائيات الأنشطة حسب النوع
+    activity_stats = {}
+    for action_code, action_name in UserActivityLog.ACTION_TYPES:
+        count = UserActivityLog.objects.filter(
+            action=action_code,
+            created_at__gte=seven_days_ago
+        ).count()
+        if count > 0:
+            activity_stats[action_name] = count
+    
+    context = {
+        'total_staff': total_staff,
+        'total_admins': total_admins,
+        'recent_activities': recent_activities,
+        'today_activities': today_activities,
+        'staff_members': staff_members,
+        'recent_logs': recent_logs,
+        'activity_stats': activity_stats,
+    }
+    
+    # تسجيل النشاط
+    UserActivityLog.log_activity(
+        user=request.user,
+        action='page_viewed',
+        description='عرض لوحة تحكم المسؤول',
+        request=request,
+        url=request.path
+    )
+    
+    return render(request, 'inventory_app/admin_dashboard.html', context)
+
+
+@staff_required
+def staff_dashboard(request):
+    """لوحة تحكم الموظف - إحصائيات شخصية"""
+    user = request.user
+    
+    # إحصائيات اليوم
+    today = timezone.now().date()
+    today_activities = UserActivityLog.objects.filter(
+        user=user,
+        created_at__date=today
+    ).count()
+    
+    # إحصائيات آخر 7 أيام
+    seven_days_ago = timezone.now() - timedelta(days=7)
+    week_activities = UserActivityLog.objects.filter(
+        user=user,
+        created_at__gte=seven_days_ago
+    ).count()
+    
+    # آخر 20 نشاط
+    recent_activities = UserActivityLog.objects.filter(user=user).order_by('-created_at')[:20]
+    
+    # الحصول على UserProfile
+    user_profile = None
+    if hasattr(user, 'user_profile'):
+        user_profile = user.user_profile
+    
+    context = {
+        'user': user,
+        'user_profile': user_profile,
+        'today_activities': today_activities,
+        'week_activities': week_activities,
+        'recent_activities': recent_activities,
+    }
+    
+    # تسجيل النشاط
+    UserActivityLog.log_activity(
+        user=user,
+        action='page_viewed',
+        description='عرض لوحة تحكم الموظف',
+        request=request,
+        url=request.path
+    )
+    
+    return render(request, 'inventory_app/staff_dashboard.html', context)
+
+
+@staff_required
+def user_profile(request):
+    """الملف الشخصي للمستخدم"""
+    user = request.user
+    
+    # الحصول على UserProfile
+    user_profile = None
+    if hasattr(user, 'user_profile'):
+        user_profile = user.user_profile
+    else:
+        # إنشاء profile إذا لم يكن موجوداً
+        user_profile = UserProfile.objects.create(
+            user=user,
+            user_type='admin' if user.is_superuser else 'staff'
+        )
+    
+    # جميع الأنشطة
+    all_activities = UserActivityLog.objects.filter(user=user).order_by('-created_at')[:100]
+    
+    # إحصائيات حسب نوع النشاط
+    activity_by_type = {}
+    for action_code, action_name in UserActivityLog.ACTION_TYPES:
+        count = UserActivityLog.objects.filter(user=user, action=action_code).count()
+        if count > 0:
+            activity_by_type[action_name] = count
+    
+    context = {
+        'user': user,
+        'user_profile': user_profile,
+        'all_activities': all_activities,
+        'activity_by_type': activity_by_type,
+    }
+    
+    # تسجيل النشاط
+    UserActivityLog.log_activity(
+        user=user,
+        action='page_viewed',
+        description='عرض الملف الشخصي',
+        request=request,
+        url=request.path
+    )
+    
+    return render(request, 'inventory_app/user_profile.html', context)
+
+
+@admin_required
+def view_staff(request, user_id):
+    """عرض تفاصيل موظف - للمسؤول فقط"""
+    staff_user = get_object_or_404(User, id=user_id)
+    staff_profile = get_object_or_404(UserProfile, user=staff_user)
+    
+    # جميع الأنشطة (UserActivityLog)
+    all_activities = UserActivityLog.objects.filter(user=staff_user).order_by('-created_at')[:100]
+    
+    # جميع العمليات المفصلة (AuditLog) - عمليات المنتجات
+    all_product_operations = AuditLog.objects.filter(user=staff_user.username).select_related('product').order_by('-created_at')[:200]
+    
+    # إحصائيات العمليات حسب النوع
+    operation_stats = {}
+    for action_code, action_name in AuditLog.ACTION_CHOICES:
+        count = AuditLog.objects.filter(user=staff_user.username, action=action_code).count()
+        if count > 0:
+            operation_stats[action_name] = count
+    
+    # إحصائيات حسب نوع النشاط (UserActivityLog)
+    activity_by_type = {}
+    for action_code, action_name in UserActivityLog.ACTION_TYPES:
+        count = UserActivityLog.objects.filter(user=staff_user, action=action_code).count()
+        if count > 0:
+            activity_by_type[action_name] = count
+    
+    # إحصائيات الوقت
+    today = timezone.now().date()
+    today_activities = UserActivityLog.objects.filter(user=staff_user, created_at__date=today).count()
+    today_operations = AuditLog.objects.filter(user=staff_user.username, created_at__date=today).count()
+    seven_days_ago = timezone.now() - timedelta(days=7)
+    week_activities = UserActivityLog.objects.filter(user=staff_user, created_at__gte=seven_days_ago).count()
+    week_operations = AuditLog.objects.filter(user=staff_user.username, created_at__gte=seven_days_ago).count()
+    
+    context = {
+        'staff_user': staff_user,
+        'staff_profile': staff_profile,
+        'all_activities': all_activities,
+        'all_product_operations': all_product_operations,
+        'activity_by_type': activity_by_type,
+        'operation_stats': operation_stats,
+        'today_activities': today_activities,
+        'today_operations': today_operations,
+        'week_activities': week_activities,
+        'week_operations': week_operations,
+    }
+    
+    # تسجيل النشاط
+    UserActivityLog.log_activity(
+        user=request.user,
+        action='user_viewed',
+        description=f'عرض ملف الموظف {staff_user.username}',
+        request=request,
+        object_type='User',
+        object_id=staff_user.id,
+        object_name=staff_user.username
+    )
+    
+    return render(request, 'inventory_app/view_staff.html', context)
+
+
+@admin_required
+def edit_staff(request, user_id):
+    """تعديل بيانات موظف - للمسؤول فقط"""
+    staff_user = get_object_or_404(User, id=user_id)
+    staff_profile = get_object_or_404(UserProfile, user=staff_user)
+    
+    if request.method == 'POST':
+        # تحديث بيانات المستخدم
+        username = request.POST.get('username', '').strip()
+        email = request.POST.get('email', '').strip()
+        
+        # التحقق من عدم تكرار اسم المستخدم
+        if username and username != staff_user.username:
+            if User.objects.filter(username=username).exclude(id=user_id).exists():
+                messages.error(request, 'اسم المستخدم مستخدم بالفعل')
+            else:
+                staff_user.username = username
+        
+        staff_user.email = email
+        staff_user.save()
+        
+        # تحديث UserProfile
+        staff_profile.phone = request.POST.get('phone', '').strip()
+        staff_profile.notes = request.POST.get('notes', '').strip()
+        user_type = request.POST.get('user_type', 'staff')
+        if user_type in ['admin', 'staff']:
+            staff_profile.user_type = user_type
+        staff_profile.save()
+        
+        # تحديث كلمة السر إذا تم إدخالها
+        new_password = request.POST.get('password', '').strip()
+        if new_password:
+            staff_user.set_password(new_password)
+            staff_user.save()
+        
+        # تسجيل النشاط
+        UserActivityLog.log_activity(
+            user=request.user,
+            action='user_updated',
+            description=f'تعديل بيانات الموظف {staff_user.username}',
+            request=request,
+            object_type='User',
+            object_id=staff_user.id,
+            object_name=staff_user.username
+        )
+        
+        messages.success(request, f'تم تحديث بيانات الموظف {staff_user.username} بنجاح')
+        return redirect('inventory_app:admin_dashboard')
+    
+    context = {
+        'staff_user': staff_user,
+        'staff_profile': staff_profile,
+    }
+    
+    return render(request, 'inventory_app/edit_staff.html', context)
+
+
+@admin_required
+@csrf_exempt
+@require_http_methods(["POST"])
+@transaction.atomic
+def toggle_staff_active(request, user_id):
+    """تفعيل/تعطيل موظف - للمسؤول فقط"""
+    try:
+        staff_user = get_object_or_404(User, id=user_id)
+        staff_profile = get_object_or_404(UserProfile, user=staff_user)
+        
+        # منع المسؤول من تعطيل نفسه
+        if staff_user == request.user:
+            return JsonResponse({
+                'success': False,
+                'error': 'لا يمكنك تعطيل نفسك'
+            }, status=400)
+        
+        # تبديل الحالة
+        staff_profile.is_active = not staff_profile.is_active
+        staff_profile.save()
+        
+        action_text = 'تفعيل' if staff_profile.is_active else 'تعطيل'
+        
+        # تسجيل النشاط
+        UserActivityLog.log_activity(
+            user=request.user,
+            action='user_updated',
+            description=f'{action_text} الموظف {staff_user.username}',
+            request=request,
+            object_type='User',
+            object_id=staff_user.id,
+            object_name=staff_user.username,
+            details={'is_active': staff_profile.is_active}
+        )
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'تم {action_text} الموظف {staff_user.username} بنجاح',
+            'is_active': staff_profile.is_active
+        })
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': f'حدث خطأ: {str(e)}'
+        }, status=500)
+
+
+@admin_required
+@csrf_exempt
+@require_http_methods(["POST"])
+@transaction.atomic
+def delete_staff(request, user_id):
+    """حذف موظف - للمسؤول فقط"""
+    try:
+        staff_user = get_object_or_404(User, id=user_id)
+        staff_profile = get_object_or_404(UserProfile, user=staff_user)
+        
+        # منع المسؤول من حذف نفسه
+        if staff_user == request.user:
+            return JsonResponse({
+                'success': False,
+                'error': 'لا يمكنك حذف نفسك'
+            }, status=400)
+        
+        username = staff_user.username
+        
+        # تسجيل النشاط قبل الحذف
+        UserActivityLog.log_activity(
+            user=request.user,
+            action='user_deleted',
+            description=f'حذف الموظف {username}',
+            request=request,
+            object_type='User',
+            object_id=staff_user.id,
+            object_name=username
+        )
+        
+        # حذف UserProfile أولاً
+        staff_profile.delete()
+        # حذف User
+        staff_user.delete()
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'تم حذف الموظف {username} بنجاح'
+        })
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': f'حدث خطأ: {str(e)}'
+        }, status=500)
 

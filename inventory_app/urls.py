@@ -69,5 +69,20 @@ urlpatterns = [
     path('orders/', views.orders_list, name='orders_list'),
     path('orders/<int:order_id>/', views.order_detail, name='order_detail'),
     path('api/delete-order/<int:order_id>/', views.delete_order, name='delete_order'),
+    
+    # تصفير الكميات
+    path('api/reset-all-quantities/', views.reset_all_quantities, name='reset_all_quantities'),
+    
+    # نظام المستخدمين
+    path('register/', views.register_staff, name='register_staff'),
+    path('admin-dashboard/', views.admin_dashboard, name='admin_dashboard'),
+    path('staff-dashboard/', views.staff_dashboard, name='staff_dashboard'),
+    path('profile/', views.user_profile, name='user_profile'),
+    
+    # إدارة الموظفين (للمسؤول فقط)
+    path('staff/<int:user_id>/view/', views.view_staff, name='view_staff'),
+    path('staff/<int:user_id>/edit/', views.edit_staff, name='edit_staff'),
+    path('api/toggle-staff-active/<int:user_id>/', views.toggle_staff_active, name='toggle_staff_active'),
+    path('api/delete-staff/<int:user_id>/', views.delete_staff, name='delete_staff'),
 ]
 

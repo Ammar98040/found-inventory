@@ -1,0 +1,893 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>عرض موظف - قلب العرب</title>
+    {% load static %}
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    <link rel="stylesheet" href="{% static 'css/sidebar.css' %}">
+    <style>
+        .profile-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 15px;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        
+        .profile-avatar {
+            width: 100px;
+            height: 100px;
+            background: rgba(255,255,255,0.2);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 48px;
+            margin: 0 auto 20px;
+        }
+        
+        .info-section {
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+        
+        .info-section h3 {
+            margin-bottom: 20px;
+            color: #333;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+        
+        .info-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 12px 0;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .info-item:last-child {
+            border-bottom: none;
+        }
+        
+        .info-label {
+            font-weight: 600;
+            color: #666;
+        }
+        
+        .info-value {
+            color: #333;
+        }
+        
+        .activities-table {
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            max-height: 500px;
+            overflow-y: auto;
+        }
+        
+        .activities-table table {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+        }
+        
+        #operations-table {
+            border-collapse: collapse;
+            table-layout: fixed;
+        }
+        
+        .activities-table th {
+            background: #667eea;
+            color: white;
+            padding: 15px;
+            text-align: right;
+            font-weight: bold;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        
+        .activities-table td {
+            padding: 12px 15px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .activities-table tr:hover {
+            background: #f9f9f9;
+        }
+        
+        .activity-type-badge {
+            display: inline-block;
+            padding: 4px 10px;
+            background: #10b981;
+            color: white;
+            border-radius: 12px;
+            font-size: 11px;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+        
+        .stat-mini {
+            background: white;
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        
+        .stat-mini .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #667eea;
+            margin: 5px 0;
+        }
+        
+        .stat-mini .stat-label {
+            color: #666;
+            font-size: 12px;
+        }
+        
+        .action-buttons {
+            margin-top: 20px;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        
+        .btn-action {
+            padding: 10px 20px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: bold;
+            display: inline-block;
+        }
+        
+        .btn-edit {
+            background: #10b981;
+            color: white;
+        }
+        
+        .btn-back {
+            background: #667eea;
+            color: white;
+        }
+        
+        .btn-action:hover {
+            opacity: 0.9;
+            transform: translateY(-2px);
+        }
+        
+        /* تحسينات للشاشات الصغيرة */
+        @media screen and (max-width: 768px) {
+            .profile-header {
+                padding: 20px;
+            }
+            
+            .profile-header h1 {
+                font-size: 24px;
+            }
+            
+            .profile-avatar {
+                width: 80px;
+                height: 80px;
+                font-size: 40px;
+            }
+            
+            .info-section {
+                padding: 20px;
+            }
+            
+            .info-section h3 {
+                font-size: 18px;
+            }
+            
+            /* تحسين الجداول */
+            .activities-table {
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+                max-height: none;
+                border-radius: 8px;
+            }
+            
+            .activities-table table {
+                min-width: 700px;
+                font-size: 12px;
+            }
+            
+            .activities-table th {
+                font-size: 11px;
+                padding: 10px 8px;
+                white-space: nowrap;
+            }
+            
+            .activities-table td {
+                padding: 10px 8px;
+                font-size: 11px;
+            }
+            
+            /* إخفاء عمود IP في الشاشات الصغيرة */
+            .activities-table th:nth-child(4),
+            .activities-table td:nth-child(4) {
+                display: none;
+            }
+            
+            /* جدول العمليات المفصلة */
+            #operations-table {
+                min-width: 900px;
+                font-size: 11px;
+            }
+            
+            #operations-table th {
+                font-size: 10px;
+                padding: 8px 5px;
+                white-space: nowrap;
+            }
+            
+            #operations-table td {
+                padding: 8px 5px;
+                font-size: 11px;
+            }
+            
+            /* تحسين عرض الأعمدة لتقليل المسافات */
+            #operations-table th:nth-child(1),
+            #operations-table td:nth-child(1) {
+                width: 90px;
+                min-width: 90px;
+            }
+            
+            #operations-table th:nth-child(2),
+            #operations-table td:nth-child(2) {
+                width: 100px;
+                min-width: 100px;
+            }
+            
+            #operations-table th:nth-child(3),
+            #operations-table td:nth-child(3) {
+                width: 100px;
+                min-width: 100px;
+            }
+            
+            #operations-table th:nth-child(5),
+            #operations-table td:nth-child(5),
+            #operations-table th:nth-child(6),
+            #operations-table td:nth-child(6) {
+                width: 70px;
+                min-width: 70px;
+                text-align: center;
+            }
+            
+            #operations-table th:nth-child(7),
+            #operations-table td:nth-child(7) {
+                width: 60px;
+                min-width: 60px;
+                text-align: center;
+            }
+            
+            #operations-table th:nth-child(9),
+            #operations-table td:nth-child(9) {
+                width: 120px;
+                min-width: 120px;
+                max-width: 150px;
+            }
+            
+            /* في الشاشات الصغيرة نحتفظ بجميع الأعمدة المهمة */
+            /* إخفاء فقط: اسم المنتج والموقع لتوفير مساحة */
+            #operations-table th:nth-child(4),
+            #operations-table td:nth-child(4),
+            #operations-table th:nth-child(8),
+            #operations-table td:nth-child(8) {
+                display: none;
+            }
+            
+            /* تقليل المسافات بين الأعمدة */
+            #operations-table {
+                border-spacing: 0;
+            }
+            
+            /* تحسين أدوات البحث */
+            .operations-filter-container {
+                flex-direction: column !important;
+            }
+            
+            .operations-filter-container > div {
+                width: 100% !important;
+                min-width: auto !important;
+            }
+            
+            /* تحسين الإحصائيات */
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 10px;
+            }
+            
+            .stat-mini {
+                padding: 12px;
+            }
+            
+            .stat-mini .stat-value {
+                font-size: 20px;
+            }
+            
+            /* تحسين الأزرار */
+            .action-buttons {
+                flex-direction: column;
+            }
+            
+            .btn-action {
+                width: 100%;
+                text-align: center;
+            }
+            
+            /* تحسين info-item */
+            .info-item {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 5px;
+            }
+            
+            .info-label {
+                font-size: 12px;
+            }
+            
+            .info-value {
+                font-size: 14px;
+            }
+        }
+        
+        @media screen and (max-width: 480px) {
+            .profile-header {
+                padding: 15px;
+            }
+            
+            .profile-header h1 {
+                font-size: 20px;
+            }
+            
+            .profile-avatar {
+                width: 60px;
+                height: 60px;
+                font-size: 32px;
+            }
+            
+            .info-section {
+                padding: 15px;
+                margin-bottom: 20px;
+            }
+            
+            .info-section h3 {
+                font-size: 16px;
+                margin-bottom: 15px;
+            }
+            
+            /* تحسين الجداول أكثر */
+            .activities-table table {
+                min-width: 600px;
+                font-size: 11px;
+            }
+            
+            .activities-table th,
+            .activities-table td {
+                padding: 8px 5px;
+            }
+            
+            #operations-table {
+                min-width: 800px;
+                font-size: 10px;
+            }
+            
+            #operations-table th {
+                padding: 6px 3px;
+                font-size: 9px;
+            }
+            
+            #operations-table td {
+                padding: 6px 3px;
+                font-size: 10px;
+            }
+            
+            /* تحسين عرض الأعمدة في الشاشات الصغيرة جداً */
+            #operations-table th:nth-child(1),
+            #operations-table td:nth-child(1) {
+                width: 75px;
+                min-width: 75px;
+            }
+            
+            #operations-table th:nth-child(2),
+            #operations-table td:nth-child(2) {
+                width: 85px;
+                min-width: 85px;
+            }
+            
+            #operations-table th:nth-child(3),
+            #operations-table td:nth-child(3) {
+                width: 90px;
+                min-width: 90px;
+            }
+            
+            #operations-table th:nth-child(5),
+            #operations-table td:nth-child(5),
+            #operations-table th:nth-child(6),
+            #operations-table td:nth-child(6) {
+                width: 55px;
+                min-width: 55px;
+                text-align: center;
+            }
+            
+            #operations-table th:nth-child(7),
+            #operations-table td:nth-child(7) {
+                width: 50px;
+                min-width: 50px;
+                text-align: center;
+            }
+            
+            #operations-table th:nth-child(9),
+            #operations-table td:nth-child(9) {
+                width: 100px;
+                min-width: 100px;
+                max-width: 120px;
+            }
+            
+            /* في الشاشات الصغيرة جداً نحتفظ بجميع الأعمدة المهمة */
+            /* إخفاء فقط: اسم المنتج والموقع */
+            #operations-table th:nth-child(4),
+            #operations-table td:nth-child(4),
+            #operations-table th:nth-child(8),
+            #operations-table td:nth-child(8) {
+                display: none;
+            }
+            
+            /* تحسين عرض النتائج في الجداول */
+            .activities-table td,
+            #operations-table td {
+                word-break: break-word;
+            }
+            
+            /* تحسين الإحصائيات */
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .stat-mini .stat-value {
+                font-size: 18px;
+            }
+            
+            /* تحسين badges */
+            .activity-type-badge {
+                font-size: 10px;
+                padding: 3px 8px;
+            }
+            
+            /* تحسين أدوات البحث */
+            .operations-filter-container {
+                gap: 10px !important;
+            }
+            
+            .operations-filter-container label {
+                font-size: 12px !important;
+            }
+            
+            .operations-filter-container input,
+            .operations-filter-container select,
+            .operations-filter-container button {
+                font-size: 12px !important;
+                padding: 8px !important;
+            }
+            
+            #operations-count {
+                font-size: 12px;
+            }
+            
+            .info-section p {
+                font-size: 12px !important;
+            }
+        }
+        
+        /* تحسين عرض الجداول الكبيرة */
+        @media screen and (min-width: 769px) {
+            .activities-table {
+                max-height: 500px;
+            }
+        }
+        
+        /* تحسينات للطباعة */
+        @media print {
+            .action-buttons,
+            .operations-filter-container,
+            #operations-count {
+                display: none;
+            }
+            
+            .activities-table {
+                max-height: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="profile-header">
+            <div class="profile-avatar">👤</div>
+            <h1>{{ staff_user.username }}</h1>
+            <p>{{ staff_profile.get_user_type_display }}</p>
+        </div>
+        
+        <div class="action-buttons">
+            <a href="{% url 'inventory_app:edit_staff' staff_user.id %}" class="btn-action btn-edit">✏️ تعديل البيانات</a>
+            <a href="{% url 'inventory_app:admin_dashboard' %}" class="btn-action btn-back">← رجوع</a>
+        </div>
+        
+        <div class="info-section">
+            <h3>📝 معلومات الحساب</h3>
+            <div class="info-item">
+                <span class="info-label">اسم المستخدم:</span>
+                <span class="info-value">{{ staff_user.username }}</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">البريد الإلكتروني:</span>
+                <span class="info-value">{{ staff_user.email|default:"غير محدد" }}</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">نوع الحساب:</span>
+                <span class="info-value">{{ staff_profile.get_user_type_display }}</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">رقم الهاتف:</span>
+                <span class="info-value">{{ staff_profile.phone|default:"غير محدد" }}</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">تاريخ الإنشاء:</span>
+                <span class="info-value">{{ staff_profile.created_at|date:"Y-m-d" }}</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">آخر نشاط:</span>
+                <span class="info-value">
+                    {% if staff_profile.last_activity %}
+                        {{ staff_profile.last_activity|date:"Y-m-d H:i" }}
+                    {% else %}
+                        لا يوجد
+                    {% endif %}
+                </span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">آخر IP تسجيل دخول:</span>
+                <span class="info-value" style="font-family: monospace;">{{ staff_profile.last_login_ip|default:"-" }}</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">الحالة:</span>
+                <span class="info-value">
+                    {% if staff_profile.is_active %}
+                        ✅ نشط
+                    {% else %}
+                        ❌ معطل
+                    {% endif %}
+                </span>
+            </div>
+            {% if staff_profile.notes %}
+            <div class="info-item">
+                <span class="info-label">ملاحظات:</span>
+                <span class="info-value">{{ staff_profile.notes }}</span>
+            </div>
+            {% endif %}
+        </div>
+        
+        <div class="info-section">
+            <h3>📊 إحصائيات الأنشطة</h3>
+            <div class="stats-grid">
+                <div class="stat-mini">
+                    <div class="stat-label">أنشطة اليوم</div>
+                    <div class="stat-value">{{ today_activities }}</div>
+                </div>
+                <div class="stat-mini">
+                    <div class="stat-label">أنشطة آخر 7 أيام</div>
+                    <div class="stat-value">{{ week_activities }}</div>
+                </div>
+                <div class="stat-mini">
+                    <div class="stat-label">عمليات المنتجات اليوم</div>
+                    <div class="stat-value">{{ today_operations }}</div>
+                </div>
+                <div class="stat-mini">
+                    <div class="stat-label">عمليات المنتجات آخر 7 أيام</div>
+                    <div class="stat-value">{{ week_operations }}</div>
+                </div>
+            </div>
+        </div>
+        
+        {% if operation_stats %}
+        <div class="info-section">
+            <h3>📊 إحصائيات العمليات حسب النوع</h3>
+            <div class="stats-grid">
+                {% for operation_name, count in operation_stats.items %}
+                <div class="stat-mini">
+                    <div class="stat-label">{{ operation_name }}</div>
+                    <div class="stat-value">{{ count }}</div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+        
+        {% if activity_by_type %}
+        <div class="info-section">
+            <h3>📊 إحصائيات الأنشطة حسب النوع</h3>
+            <div class="stats-grid">
+                {% for action_name, count in activity_by_type.items %}
+                <div class="stat-mini">
+                    <div class="stat-label">{{ action_name }}</div>
+                    <div class="stat-value">{{ count }}</div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+        
+        <div class="info-section">
+            <h3>📋 سجل الأنشطة</h3>
+            <div class="activities-table">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>التاريخ والوقت</th>
+                            <th>نوع النشاط</th>
+                            <th>الوصف</th>
+                            <th>IP</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for activity in all_activities %}
+                        <tr>
+                            <td>{{ activity.created_at|date:"Y-m-d H:i" }}</td>
+                            <td>
+                                <span class="activity-type-badge">{{ activity.get_action_display }}</span>
+                            </td>
+                            <td>{{ activity.description }}</td>
+                            <td style="font-family: monospace;">{{ activity.ip_address|default:"-" }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="4" style="text-align: center; padding: 30px; color: #999;">
+                                لا توجد أنشطة مسجلة
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <!-- قسم العمليات المفصلة -->
+        <div class="info-section">
+            <h3>🔍 العمليات المفصلة على المنتجات</h3>
+            <p style="color: #666; margin-bottom: 20px; font-size: 14px;">
+                جميع العمليات التي قام بها الموظف على المنتجات (إضافة، تعديل، حذف، سحب كميات، ربط مواقع، نقل منتجات)
+            </p>
+            
+            <!-- أدوات البحث والفلترة -->
+            <div class="operations-filter-container" style="background: #f9fafb; padding: 15px; border-radius: 8px; margin-bottom: 20px; display: flex; gap: 15px; flex-wrap: wrap; align-items: center;">
+                <div style="flex: 1; min-width: 200px;">
+                    <label style="display: block; margin-bottom: 5px; font-weight: 600; color: #333; font-size: 14px;">🔍 البحث الذكي:</label>
+                    <input type="text" 
+                           id="operations-search" 
+                           placeholder="ابحث في رقم المنتج، الاسم، الملاحظات..." 
+                           style="width: 100%; padding: 10px; border: 2px solid #e2e8f0; border-radius: 8px; font-size: 14px;">
+                </div>
+                <div style="min-width: 180px;">
+                    <label style="display: block; margin-bottom: 5px; font-weight: 600; color: #333; font-size: 14px;">📋 نوع العملية:</label>
+                    <select id="operations-filter" 
+                            style="width: 100%; padding: 10px; border: 2px solid #e2e8f0; border-radius: 8px; font-size: 14px;">
+                        <option value="all">جميع الأنواع</option>
+                        <option value="added">➕ إضافة منتج</option>
+                        <option value="updated">✏️ تعديل منتج</option>
+                        <option value="deleted">🗑️ حذف منتج</option>
+                        <option value="quantity_taken">📤 سحب كمية</option>
+                        <option value="quantity_added">📥 إضافة كمية</option>
+                        <option value="location_assigned">📍 ربط موقع</option>
+                        <option value="location_removed">🔗 إلغاء ربط موقع</option>
+                    </select>
+                </div>
+                <div style="align-self: flex-end;">
+                    <button onclick="resetOperationsFilter()" 
+                            style="padding: 10px 20px; background: #6b7280; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 14px;">
+                        🔄 إعادة تعيين
+                    </button>
+                </div>
+            </div>
+            
+            <div id="operations-count" style="margin-bottom: 10px; color: #666; font-size: 14px;">
+                إجمالي العمليات: <strong>{{ all_product_operations|length }}</strong>
+            </div>
+            
+            <div class="activities-table">
+                <table id="operations-table">
+                    <thead>
+                        <tr>
+                            <th>التاريخ والوقت</th>
+                            <th>نوع العملية</th>
+                            <th>رقم المنتج</th>
+                            <th>اسم المنتج</th>
+                            <th>الكمية قبل</th>
+                            <th>الكمية بعد</th>
+                            <th>التغيير</th>
+                            <th>الموقع</th>
+                            <th>الملاحظات</th>
+                        </tr>
+                    </thead>
+                    <tbody id="operations-tbody">
+                        {% for operation in all_product_operations %}
+                        <tr class="operation-row" 
+                            data-action="{{ operation.action }}"
+                            data-product-number="{{ operation.product_number|lower }}"
+                            data-product-name="{% if operation.product %}{{ operation.product.name|lower }}{% endif %}"
+                            data-notes="{{ operation.notes|lower|default:'' }}">
+                            <td>{{ operation.created_at|date:"Y-m-d H:i" }}</td>
+                            <td>
+                                {% if operation.action == 'added' %}
+                                    <span class="activity-type-badge" style="background: #10b981;">➕ إضافة</span>
+                                {% elif operation.action == 'updated' %}
+                                    <span class="activity-type-badge" style="background: #f59e0b;">✏️ تعديل</span>
+                                {% elif operation.action == 'deleted' %}
+                                    <span class="activity-type-badge" style="background: #ef4444;">🗑️ حذف</span>
+                                {% elif operation.action == 'quantity_taken' %}
+                                    <span class="activity-type-badge" style="background: #3b82f6;">📤 سحب</span>
+                                {% elif operation.action == 'quantity_added' %}
+                                    <span class="activity-type-badge" style="background: #10b981;">📥 إضافة كمية</span>
+                                {% elif operation.action == 'location_assigned' %}
+                                    <span class="activity-type-badge" style="background: #8b5cf6;">📍 ربط موقع</span>
+                                {% elif operation.action == 'location_removed' %}
+                                    <span class="activity-type-badge" style="background: #6b7280;">🔗 إلغاء ربط</span>
+                                {% else %}
+                                    <span class="activity-type-badge">{{ operation.get_action_display }}</span>
+                                {% endif %}
+                            </td>
+                            <td><strong>{{ operation.product_number }}</strong></td>
+                            <td>
+                                {% if operation.product %}
+                                    <a href="{% url 'inventory_app:product_detail' operation.product.id %}" style="color: #667eea; text-decoration: none;">
+                                        {{ operation.product.name|truncatewords:5 }}
+                                    </a>
+                                {% else %}
+                                    <span style="color: #999;">-</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ operation.quantity_before|default:"-" }}</td>
+                            <td>{{ operation.quantity_after|default:"-" }}</td>
+                            <td>
+                                {% if operation.quantity_change != 0 %}
+                                    {% if operation.quantity_change > 0 %}
+                                        <span style="color: #10b981;">+{{ operation.quantity_change }}</span>
+                                    {% else %}
+                                        <span style="color: #ef4444;">{{ operation.quantity_change }}</span>
+                                    {% endif %}
+                                {% else %}
+                                    <span style="color: #999;">-</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if operation.product and operation.product.location %}
+                                    <span style="font-family: monospace; color: #667eea;">{{ operation.product.location.full_location }}</span>
+                                {% else %}
+                                    <span style="color: #999;">-</span>
+                                {% endif %}
+                            </td>
+                            <td style="font-size: 12px; color: #666;">{{ operation.notes|truncatewords:10|default:"-" }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="9" style="text-align: center; padding: 30px; color: #999;">
+                                لا توجد عمليات مسجلة
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <script>
+        // البحث والفلترة الذكية للعمليات
+        document.addEventListener('DOMContentLoaded', function() {
+            const searchInput = document.getElementById('operations-search');
+            const filterSelect = document.getElementById('operations-filter');
+            const operationsCount = document.getElementById('operations-count');
+            
+            function filterOperations() {
+                const searchTerm = searchInput.value.toLowerCase().trim();
+                const filterType = filterSelect.value;
+                const rows = document.querySelectorAll('.operation-row');
+                let visibleCount = 0;
+                
+                rows.forEach(function(row) {
+                    const action = row.getAttribute('data-action');
+                    const productNumber = row.getAttribute('data-product-number') || '';
+                    const productName = row.getAttribute('data-product-name') || '';
+                    const notes = row.getAttribute('data-notes') || '';
+                    
+                    // فلترة حسب نوع العملية
+                    let matchesFilter = (filterType === 'all' || action === filterType);
+                    
+                    // فلترة حسب البحث
+                    let matchesSearch = true;
+                    if (searchTerm) {
+                        matchesSearch = (
+                            productNumber.includes(searchTerm) ||
+                            productName.includes(searchTerm) ||
+                            notes.includes(searchTerm)
+                        );
+                    }
+                    
+                    // إظهار/إخفاء الصف
+                    if (matchesFilter && matchesSearch) {
+                        row.style.display = '';
+                        visibleCount++;
+                    } else {
+                        row.style.display = 'none';
+                    }
+                });
+                
+                // تحديث عدد العمليات المرئية
+                const total = rows.length;
+                if (visibleCount === total) {
+                    operationsCount.innerHTML = `إجمالي العمليات: <strong>${total}</strong>`;
+                } else {
+                    operationsCount.innerHTML = `عرض <strong>${visibleCount}</strong> من <strong>${total}</strong> عملية`;
+                }
+                
+                // إظهار رسالة إذا لم توجد نتائج
+                const tbody = document.getElementById('operations-tbody');
+                const noResultsRow = tbody.querySelector('.no-results-row');
+                if (visibleCount === 0) {
+                    if (!noResultsRow) {
+                        const row = document.createElement('tr');
+                        row.className = 'no-results-row';
+                        row.innerHTML = '<td colspan="9" style="text-align: center; padding: 30px; color: #999;">لا توجد عمليات تطابق البحث</td>';
+                        tbody.appendChild(row);
+                    }
+                } else if (noResultsRow) {
+                    noResultsRow.remove();
+                }
+            }
+            
+            // البحث مع تأخير لتقليل عدد الطلبات
+            let searchTimeout;
+            searchInput.addEventListener('input', function() {
+                clearTimeout(searchTimeout);
+                searchTimeout = setTimeout(filterOperations, 300);
+            });
+            
+            // فلترة فورية عند تغيير النوع
+            filterSelect.addEventListener('change', filterOperations);
+            
+            // تفعيل البحث الأولي
+            filterOperations();
+        });
+        
+        // إعادة تعيين الفلاتر
+        function resetOperationsFilter() {
+            document.getElementById('operations-search').value = '';
+            document.getElementById('operations-filter').value = 'all';
+            document.querySelectorAll('.operation-row').forEach(function(row) {
+                row.style.display = '';
+            });
+            const total = document.querySelectorAll('.operation-row').length;
+            document.getElementById('operations-count').innerHTML = `إجمالي العمليات: <strong>${total}</strong>`;
+            const noResultsRow = document.querySelector('.no-results-row');
+            if (noResultsRow) {
+                noResultsRow.remove();
+            }
+        }
+    </script>
+</body>
+</html>
+

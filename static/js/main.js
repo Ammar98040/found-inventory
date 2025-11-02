@@ -6,6 +6,7 @@ const searchBtn = document.getElementById('search-btn');
 const clearBtn = document.getElementById('clear-btn');
 const productNumbersTextarea = document.getElementById('product-numbers');
 const resultsSection = document.getElementById('results-section');
+const recipientNameInput = document.getElementById('recipient-name');
 const resultsContainer = document.getElementById('results-container');
 const resultsCount = document.getElementById('results-count');
 const loadingEl = document.getElementById('loading');
@@ -24,7 +25,13 @@ productNumbersTextarea.addEventListener('keydown', (e) => {
 // معالج البحث
 async function handleSearch() {
     const input = productNumbersTextarea.value.trim();
+    const recipientName = recipientNameInput ? recipientNameInput.value.trim() : '';
     
+    if (!recipientName) {
+        showError('الرجاء إدخال اسم المستلم');
+        return;
+    }
+
     if (!input) {
         showError('الرجاء إدخال أرقام المنتجات');
         return;
@@ -575,6 +582,12 @@ async function confirmSelectedProducts() {
         alert('لم يتم تحديد أي منتج');
         return;
     }
+
+    const recipientName = recipientNameInput ? recipientNameInput.value.trim() : '';
+    if (!recipientName) {
+        alert('الرجاء إدخال اسم المستلم قبل التأكيد');
+        return;
+    }
     
     // التحقق من أن جميع المنتجات التي لها كميات مطلوبة قد تم تحديدها
     const productsWithRequestedQty = currentResults.filter(p => 
@@ -609,7 +622,7 @@ async function confirmSelectedProducts() {
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ products: selectedProducts })
+            body: JSON.stringify({ products: selectedProducts, recipient_name: recipientName })
         });
         
         const data = await response.json();
@@ -686,16 +699,16 @@ function showWarning(duplicates) {
     }
 }
 
-// تصدير إلى PDF مع خريطة المستودع
+// Export to PDF - New improved version with page splitting
 async function exportToPDF() {
     const results = currentResults;
     
     if (!results || results.length === 0) {
-        alert('لا توجد نتائج للتصدير');
+        alert('No results to export');
         return;
     }
     
-    // الحصول على معلومات المستودع
+    // Get warehouse information
     let warehouseData;
     try {
         const response = await fetch('/api/grid/');
@@ -705,168 +718,199 @@ async function exportToPDF() {
     }
     
     const { jsPDF } = window.jspdf;
-    const doc = new jsPDF('l', 'mm', 'a4'); // Landscape
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const pageHeight = doc.internal.pageSize.getHeight();
-    
-    // نص بسيط بدلاً من النص العربي لتفادي مشاكل الترميز
-    const today = new Date().toISOString().split('T')[0];
-    
-    // العنوان (بدون نص عربي لإصلاح مشكلة الترميز)
-    doc.setFontSize(18);
-    doc.setFont('helvetica', 'bold');
-    doc.text('Warehouse Map', pageWidth / 2, 15, { align: 'center' });
-    
-    doc.setFontSize(11);
-    doc.setFont('helvetica', 'normal');
-    doc.text(`Date: ${today}`, pageWidth / 2, 23, { align: 'center' });
-    doc.text(`Total Products: ${results.length}`, pageWidth / 2, 30, { align: 'center' });
-    
-    // رسم الخريطة بقياس أكبر وأوضح
     const rows = warehouseData.rows || 6;
     const columns = warehouseData.columns || 15;
-    const cellWidth = 16;  
-    const cellHeight = 16;
-    const gridTotalWidth = columns * cellWidth;
-    const gridTotalHeight = rows * cellHeight;
     
-    // RTL: حساب البداية من اليمين
-    const gridStartX = pageWidth - gridTotalWidth - 15; // من اليمين بمسافة 15mm
-    const startX = gridStartX - cellWidth; // بداية الشبكة بدون رأس الصفوف
-    const startY = 45;
+    // Filter only products with locations
+    const foundProducts = results.filter(p => p.found && p.locations && p.locations.length > 0);
     
-    // تجميع المواقع
+    if (foundProducts.length === 0) {
+        alert('No products with locations to export');
+        return;
+    }
+    
+    // Create location map
     const locationMap = new Map();
-    results.forEach(product => {
-        if (product.found && product.locations && product.locations.length > 0) {
+    foundProducts.forEach(product => {
+        if (product.locations && product.locations.length > 0) {
             product.locations.forEach(loc => {
                 const key = `${loc.row},${loc.column}`;
                 if (!locationMap.has(key)) {
                     locationMap.set(key, []);
                 }
-                locationMap.get(key).push(product.product_number);
+                locationMap.get(key).push({
+                    number: product.product_number,
+                    quantity: product.quantity || 0
+                });
             });
         }
     });
     
-    // RTL: رسم رأس الأعمدة من اليمين إلى اليسار (العمود 15 في أقصى اليمين، والعمود 1 في أقصى اليسار)
-    doc.setFontSize(13);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(40, 40, 40);
-    for (let col = 1; col <= columns; col++) {
-        // RTL: حساب x من اليمين
-        const x = gridStartX + (columns - col) * cellWidth;
-        // خلفية رمادية للرأس
-        doc.setFillColor(241, 245, 249);
-        doc.rect(x, startY, cellWidth, cellHeight, 'F');
-        // حدود
-        doc.setDrawColor(200, 200, 200);
-        doc.setLineWidth(0.3);
-        doc.rect(x, startY, cellWidth, cellHeight);
-        // النص
-        doc.text(col.toString(), x + cellWidth/2, startY + 11, { align: 'center' });
-    }
+    // Calculate rows per page - increased to reduce pages
+    const rowsPerPage = rows <= 6 ? 6 : (rows <= 12 ? 10 : 12);
+    const totalPages = Math.ceil(rows / rowsPerPage);
     
-    // رسم رأس الصفوف والخلايا
-    for (let row = 1; row <= rows; row++) {
-        // رأس الصف (على اليمين)
-        const y = startY + row * cellHeight;
-        // خلفية رمادية للرأس
-        doc.setFillColor(241, 245, 249);
-        doc.rect(gridStartX + columns * cellWidth, y, cellWidth, cellHeight, 'F');
-        // حدود
-        doc.setDrawColor(200, 200, 200);
-        doc.setLineWidth(0.3);
-        doc.rect(gridStartX + columns * cellWidth, y, cellWidth, cellHeight);
-        // النص
-        doc.text(row.toString(), gridStartX + columns * cellWidth + cellWidth/2, y + 11, { align: 'center' });
+    // PDF settings - Landscape orientation
+    const pageWidth = 297; // A4 landscape width in mm
+    const pageHeight = 210; // A4 landscape height in mm
+    const margin = 10; // Reduced margin
+    const availableWidth = pageWidth - (2 * margin);
+    const availableHeight = pageHeight - (2 * margin);
+    
+    // Calculate cell dimensions - smaller cells
+    const headerHeight = 8; // Smaller header
+    const cellWidth = (availableWidth - headerHeight) / columns;
+    const cellHeight = (availableHeight - headerHeight - 8) / rowsPerPage; // 8mm for title (reduced)
+    
+    // Generate all pages in a single document
+    const mainDoc = new jsPDF('l', 'mm', 'a4');
+    
+    for (let page = 0; page < totalPages; page++) {
+        if (page > 0) {
+            mainDoc.addPage('l'); // Add new page in landscape
+        }
         
-        // RTL: الخلايا من اليمين إلى اليسار
-        for (let col = 1; col <= columns; col++) {
-            // حساب x من اليمين
-            const x = gridStartX + (columns - col) * cellWidth;
-            const key = `${row},${col}`;
-            const hasProduct = locationMap.has(key);
+        const startRow = (page * rowsPerPage) + 1;
+        const endRow = Math.min((page + 1) * rowsPerPage, rows);
             
-            if (hasProduct) {
-                // خلفية خضراء
-                doc.setFillColor(16, 185, 129);
-                doc.rect(x, y, cellWidth, cellHeight, 'F');
+        // Title - smaller
+        mainDoc.setFontSize(12);
+        mainDoc.setFont('helvetica', 'bold');
+        mainDoc.text('Warehouse Locations Map', pageWidth / 2, margin + 5, { align: 'center' });
+        
+        // Page info - smaller
+        mainDoc.setFontSize(8);
+        mainDoc.setFont('helvetica', 'normal');
+        mainDoc.text(`Page ${page + 1} of ${totalPages}`, pageWidth - margin, margin + 5, { align: 'right' });
+        mainDoc.text(`Rows ${startRow}-${endRow}`, margin, margin + 5, { align: 'left' });
+        
+        // Starting position
+        const startY = margin + 10;
+        const startX = margin;
+        
+        // Draw column headers - RTL order (columns start from right)
+        mainDoc.setFontSize(8);
+        mainDoc.setFont('helvetica', 'bold');
+        mainDoc.setFillColor(100, 100, 200);
+        mainDoc.rect(startX, startY, headerHeight, headerHeight, 'F');
+        mainDoc.setTextColor(255, 255, 255);
+        mainDoc.text('R\\C', startX + headerHeight / 2, startY + headerHeight / 2 + 2, { align: 'center' });
+        
+        // RTL: Draw columns from right to left (column 15 on right, column 1 on left)
+        for (let col = 1; col <= columns; col++) {
+            // Calculate x position from right (RTL)
+            const rtlColIndex = columns - col; // Reverse order
+            const x = startX + headerHeight + (rtlColIndex * cellWidth);
+            mainDoc.setFillColor(100, 100, 200);
+            mainDoc.rect(x, startY, cellWidth, headerHeight, 'F');
+            mainDoc.setTextColor(255, 255, 255);
+            mainDoc.setFontSize(8);
+            mainDoc.text(col.toString(), x + cellWidth / 2, startY + headerHeight / 2 + 2, { align: 'center' });
+        }
+        
+        // Draw rows
+        let currentRowNum = 0;
+        for (let row = startRow; row <= endRow; row++) {
+            const y = startY + headerHeight + (currentRowNum * cellHeight);
+            
+            // Row header
+            mainDoc.setFillColor(100, 100, 200);
+            mainDoc.rect(startX, y, headerHeight, cellHeight, 'F');
+            mainDoc.setTextColor(255, 255, 255);
+            mainDoc.setFontSize(7);
+            mainDoc.setFont('helvetica', 'bold');
+            mainDoc.text(row.toString(), startX + headerHeight / 2, y + cellHeight / 2 + 2, { align: 'center' });
+
+            // Cells - RTL order (columns from right to left)
+            for (let col = 1; col <= columns; col++) {
+                // RTL: Calculate x position from right
+                const rtlColIndex = columns - col;
+                const x = startX + headerHeight + (rtlColIndex * cellWidth);
+                const key = `${row},${col}`;
+                const hasProduct = locationMap.has(key);
                 
-                // نص الموقع
-                doc.setFontSize(8);
-                doc.setFont('helvetica', 'bold');
-                doc.setTextColor(0, 71, 55);
-                doc.text(`R${row}C${col}`, x + cellWidth/2, y + 6, { align: 'center' });
+                // Cell border - thinner
+                mainDoc.setDrawColor(200, 200, 200);
+                mainDoc.setLineWidth(0.1);
                 
-                // رقم المنتج
-                const products = locationMap.get(key);
-                if (products.length > 0) {
-                    doc.setFontSize(7);
-                    doc.setFont('helvetica', 'normal');
-                    doc.text(products[0].substring(0, 6), x + cellWidth/2, y + 12, { align: 'center' });
+                if (hasProduct) {
+                    // Cell with product - Green background
+                    mainDoc.setFillColor(76, 175, 80); // Green
+                    mainDoc.rect(x, y, cellWidth, cellHeight, 'FD');
+                    
+                    // Location label - smaller font
+                    mainDoc.setTextColor(255, 255, 255);
+                    mainDoc.setFontSize(5);
+                    mainDoc.setFont('helvetica', 'bold');
+                    const locationText = `R${row}C${col}`;
+                    mainDoc.text(locationText, x + cellWidth / 2, y + 3, { align: 'center' });
+                    
+                    // Product numbers (if space allows) - smaller
+                    const products = locationMap.get(key);
+                    if (products && products.length > 0 && products.length <= 2) {
+                        mainDoc.setFontSize(4.5);
+                        mainDoc.setFont('helvetica', 'normal');
+                        products.forEach((prod, idx) => {
+                            const textY = y + 6 + (idx * 3);
+                            if (textY < y + cellHeight - 1) {
+                                const productText = prod.number.length > 7 ? prod.number.substring(0, 7) : prod.number;
+                                mainDoc.text(productText, x + cellWidth / 2, textY, { align: 'center' });
+                            }
+                        });
+                    } else if (products && products.length > 2) {
+                        mainDoc.setFontSize(4.5);
+                        mainDoc.text(`${products.length}`, x + cellWidth / 2, y + 6, { align: 'center' });
+    }
+                } else {
+                    // Empty cell - Light gray
+                    mainDoc.setFillColor(245, 245, 245);
+                    mainDoc.rect(x, y, cellWidth, cellHeight, 'FD');
+                    
+                    // Location label - smaller
+                    mainDoc.setTextColor(150, 150, 150);
+                    mainDoc.setFontSize(5);
+                    mainDoc.setFont('helvetica', 'normal');
+                    const locationText = `R${row}C${col}`;
+                    mainDoc.text(locationText, x + cellWidth / 2, y + cellHeight / 2 + 1, { align: 'center' });
                 }
-                
-                // حدود خضراء
-                doc.setDrawColor(5, 150, 105);
-                doc.setLineWidth(0.4);
-                doc.rect(x, y, cellWidth, cellHeight);
-            } else {
-                // خلفية رمادية فاتحة
-                doc.setFillColor(248, 250, 252);
-                doc.rect(x, y, cellWidth, cellHeight, 'F');
-                
-                // حدود رمادية
-                doc.setDrawColor(226, 232, 240);
-                doc.setLineWidth(0.2);
-                doc.rect(x, y, cellWidth, cellHeight);
             }
+            
+            currentRowNum++;
+        }
+        
+        // Legend (only on first page) - smaller
+        if (page === 0) {
+            const legendY = startY + headerHeight + (rowsPerPage * cellHeight) + 3;
+            mainDoc.setFontSize(7);
+            mainDoc.setFont('helvetica', 'bold');
+            mainDoc.setTextColor(0, 0, 0);
+            mainDoc.text('Legend:', margin, legendY);
+            
+            // Green box (has products) - smaller
+            mainDoc.setFillColor(76, 175, 80);
+            mainDoc.rect(margin + 20, legendY - 3, 4, 4, 'F');
+            mainDoc.setFont('helvetica', 'normal');
+            mainDoc.setFontSize(6);
+            mainDoc.text('Has Products', margin + 26, legendY);
+            
+            // Gray box (empty) - smaller
+            mainDoc.setFillColor(245, 245, 245);
+            mainDoc.setDrawColor(200, 200, 200);
+            mainDoc.rect(margin + 65, legendY - 3, 4, 4, 'FD');
+            mainDoc.text('Empty', margin + 71, legendY);
+            
+            // Summary - smaller
+            const totalLocations = locationMap.size;
+            const totalProducts = foundProducts.length;
+            mainDoc.setFontSize(6);
+            mainDoc.text(`Used: ${totalLocations} | Products: ${totalProducts}`, pageWidth - margin, legendY, { align: 'right' });
         }
     }
     
-    // إضافة مفتاح الألوان في أسفل الصفحة (RTL)
-    let yPos = startY + rows * cellHeight + 20;
-    doc.setFontSize(12);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(0, 0, 0);
-    
-    // RTL: مفتاح بعلامات ملونة (من اليمين)
-    let xPos = pageWidth - 80;
-    
-    // مربع أخضر
-    doc.setFillColor(16, 185, 129);
-    doc.rect(xPos, yPos, 6, 6, 'F');
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(10);
-    doc.text('Has Product', xPos + 9, yPos + 4.5);
-    
-    yPos += 10;
-    // مربع رمادي
-    doc.setFillColor(241, 245, 249);
-    doc.rect(xPos, yPos, 6, 6, 'F');
-    doc.setDrawColor(200, 200, 200);
-    doc.setLineWidth(0.2);
-    doc.rect(xPos, yPos, 6, 6);
-    doc.text('Empty', xPos + 9, yPos + 4.5);
-    
-    // RTL: ملخص في الجهة اليسرى
-    xPos = 20;
-    yPos = startY + rows * cellHeight + 20;
-    doc.setFontSize(12);
-    doc.setFont('helvetica', 'bold');
-    doc.text('Summary:', xPos, yPos);
-    yPos += 8;
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(10);
-    doc.text(`Used Locations: ${locationMap.size}`, xPos, yPos);
-    yPos += 6;
-    doc.text(`Total Products: ${results.length}`, xPos, yPos);
-    
-    // حفظ PDF
+    // Save the PDF
     const filename = `Warehouse_Map_${new Date().toISOString().split('T')[0]}.pdf`;
-    doc.save(filename);
-    
-    alert('PDF exported successfully!');
+    mainDoc.save(filename);
+    alert(`PDF exported successfully! (${totalPages} page${totalPages > 1 ? 's' : ''})`);
 }
 
 // طباعة مواقع المنتجات

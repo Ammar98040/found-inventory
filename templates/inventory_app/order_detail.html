@@ -97,6 +97,12 @@
         </div>
         
         <div class="order-info">
+            {% if order.recipient_name %}
+            <div class="info-row">
+                <span class="info-label">اسم المستلم:</span>
+                <span class="info-value">{{ order.recipient_name }}</span>
+            </div>
+            {% endif %}
             <div class="info-row">
                 <span class="info-label">رقم الطلبية:</span>
                 <span class="info-value" style="font-family: monospace;">{{ order.order_number }}</span>

@@ -11,9 +11,8 @@
     <link rel="stylesheet" href="{% static 'css/quick_search.css' %}">
     <link rel="stylesheet" href="{% static 'css/notifications.css' %}">
     
-    <!-- مكتبات PDF -->
+    <!-- PDF Libraries -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 </head>
 <style>
     /* أنيميشن شعار قلب العرب */
@@ -163,6 +162,92 @@
         transform: translateY(-2px);
         box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
     }
+    
+    /* معلومات المستخدم 3D */
+    .user-info-3d {
+        margin-top: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 15px;
+        position: relative;
+        z-index: 2;
+        flex-wrap: wrap;
+    }
+    
+    .user-badge {
+        display: inline-block;
+        padding: 10px 20px;
+        border-radius: 25px;
+        font-weight: bold;
+        font-size: 16px;
+        color: white;
+        text-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+        animation: badgePulse 3s infinite;
+        transform-style: preserve-3d;
+        transition: all 0.3s ease;
+    }
+    
+    .admin-badge {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border: 2px solid rgba(255, 255, 255, 0.3);
+    }
+    
+    .staff-badge {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        border: 2px solid rgba(255, 255, 255, 0.3);
+    }
+    
+    .user-badge:hover {
+        transform: translateY(-3px) scale(1.05);
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+    }
+    
+    @keyframes badgePulse {
+        0%, 100% {
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+        }
+        50% {
+            box-shadow: 0 4px 25px rgba(255, 255, 255, 0.4);
+        }
+    }
+    
+    .user-name {
+        display: inline-block;
+        padding: 10px 25px;
+        background: rgba(255, 255, 255, 0.95);
+        color: #333;
+        border-radius: 25px;
+        font-weight: bold;
+        font-size: 18px;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        transform-style: preserve-3d;
+        transition: all 0.3s ease;
+        text-shadow: none;
+        border: 2px solid rgba(255, 255, 255, 0.5);
+    }
+    
+    .user-name:hover {
+        transform: translateY(-3px) scale(1.05);
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+        background: rgba(255, 255, 255, 1);
+    }
+    
+    @keyframes userInfoSlide {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    .user-info-3d {
+        animation: userInfoSlide 0.8s ease-out 0.5s both;
+    }
 </style>
 
 <body>
@@ -182,6 +267,14 @@
             <div class="org-logo">❤️</div>
             <div class="org-name">قلب العرب</div>
             <div class="org-subtitle">نظام إدارة المخزون المتقدم</div>
+            <div class="user-info-3d">
+                {% if user_type_display == 'مسؤول' %}
+                    <span class="user-badge admin-badge">🎛️ مسؤول</span>
+                {% else %}
+                    <span class="user-badge staff-badge">👤 موظف</span>
+                {% endif %}
+                <span class="user-name">{{ user.username }}</span>
+            </div>
         </div>
         
         <header>
@@ -207,6 +300,10 @@
                         الوحدات: حبة | نصف درزن (6) | درزن (12)<br>
                         مثال: BAG-001:12 (درزن كامل)
                     </small>
+                </div>
+                <div class="input-group">
+                    <label for="recipient-name">اسم المستلم (اختياري)</label>
+                    <input id="recipient-name" type="text" placeholder="اكتب اسم المستلم هنا" />
                 </div>
                 <button id="search-btn" class="btn btn-primary">
                     <span class="btn-icon">🔍</span>
@@ -279,23 +376,34 @@
         <div class="sidebar-content" id="sidebar-main-content">
             <div class="sidebar-section">
                 <div class="sidebar-title">الرئيسية</div>
-                <a href="/" class="sidebar-link">
+                <a href="{% url 'inventory_app:home' %}" class="sidebar-link active">
                     <span class="icon">🔍</span>
                     <span class="text">البحث عن المنتجات</span>
                 </a>
-                <a href="/dashboard/" class="sidebar-link">
+                <a href="{% url 'inventory_app:dashboard' %}" class="sidebar-link">
                     <span class="icon">📊</span>
                     <span class="text">لوحة التحكم</span>
                 </a>
+                {% if user_type_display == 'مسؤول' %}
+                <a href="{% url 'inventory_app:admin_dashboard' %}" class="sidebar-link">
+                    <span class="icon">🎛️</span>
+                    <span class="text">لوحة المسؤول</span>
+                </a>
+                {% else %}
+                <a href="{% url 'inventory_app:staff_dashboard' %}" class="sidebar-link">
+                    <span class="icon">👤</span>
+                    <span class="text">لوحة الموظف</span>
+                </a>
+                {% endif %}
             </div>
             
             <div class="sidebar-section">
                 <div class="sidebar-title">إدارة المنتجات</div>
-                <a href="/products/" class="sidebar-link">
+                <a href="{% url 'inventory_app:products_list' %}" class="sidebar-link">
                     <span class="icon">📦</span>
                     <span class="text">قائمة المنتجات</span>
                 </a>
-                <a href="/products/add/" class="sidebar-link">
+                <a href="{% url 'inventory_app:product_add' %}" class="sidebar-link">
                     <span class="icon">➕</span>
                     <span class="text">إضافة منتج جديد</span>
                 </a>
@@ -303,23 +411,41 @@
             
             <div class="sidebar-section">
                 <div class="sidebar-title">المستودع</div>
-                <a href="/manage/" class="sidebar-link">
+                <a href="{% url 'inventory_app:manage_warehouse' %}" class="sidebar-link">
                     <span class="icon">⚙️</span>
                     <span class="text">إدارة المستودع</span>
                 </a>
-                <a href="/locations/" class="sidebar-link">
+                <a href="{% url 'inventory_app:locations_list' %}" class="sidebar-link">
                     <span class="icon">📍</span>
                     <span class="text">الأماكن</span>
                 </a>
             </div>
             
+            {% if user_type_display == 'مسؤول' %}
+            <div class="sidebar-section">
+                <div class="sidebar-title">إدارة المستخدمين</div>
+                <a href="{% url 'inventory_app:register_staff' %}" class="sidebar-link">
+                    <span class="icon">👤</span>
+                    <span class="text">إنشاء حساب موظف</span>
+                </a>
+            </div>
+            {% else %}
+            <div class="sidebar-section">
+                <div class="sidebar-title">حسابي</div>
+                <a href="{% url 'inventory_app:user_profile' %}" class="sidebar-link">
+                    <span class="icon">📋</span>
+                    <span class="text">الملف الشخصي</span>
+                </a>
+            </div>
+            {% endif %}
+            
             <div class="sidebar-section">
                 <div class="sidebar-title">السجلات</div>
-                <a href="/orders/" class="sidebar-link">
-                    <span class="icon">📦</span>
-                    <span class="text">الطلبات المسحوبة</span>
+                <a href="{% url 'inventory_app:orders_list' %}" class="sidebar-link">
+                    <span class="icon">📋</span>
+                    <span class="text">سجل الطلبات</span>
                 </a>
-                <a href="/audit-logs/" class="sidebar-link">
+                <a href="{% url 'inventory_app:audit_logs' %}" class="sidebar-link">
                     <span class="icon">📋</span>
                     <span class="text">سجلات العمليات</span>
                 </a>
@@ -327,27 +453,29 @@
             
             <div class="sidebar-section">
                 <div class="sidebar-title">التقارير</div>
-                <a href="/daily-reports/" class="sidebar-link">
+                <a href="{% url 'inventory_app:daily_reports' %}" class="sidebar-link">
                     <span class="icon">📊</span>
                     <span class="text">التقارير اليومية</span>
                 </a>
-                <a href="/daily-reports-archive/" class="sidebar-link">
+                <a href="{% url 'inventory_app:daily_reports_archive' %}" class="sidebar-link">
                     <span class="icon">📚</span>
                     <span class="text">سجل التقارير</span>
                 </a>
             </div>
             
+            {% if user_type_display == 'مسؤول' %}
             <div class="sidebar-section">
                 <div class="sidebar-title">الصيانة</div>
-                <a href="/backup-restore/" class="sidebar-link">
+                <a href="{% url 'inventory_app:backup_restore' %}" class="sidebar-link">
                     <span class="icon">💾</span>
                     <span class="text">النسخ الاحتياطي</span>
                 </a>
-                <a href="/data-deletion/" class="sidebar-link">
+                <a href="{% url 'inventory_app:data_deletion' %}" class="sidebar-link">
                     <span class="icon">🗑️</span>
                     <span class="text">حذف البيانات</span>
                 </a>
             </div>
+            {% endif %}
             
             <div class="sidebar-section">
                 <div class="sidebar-title">الإحصائيات الحية</div>
