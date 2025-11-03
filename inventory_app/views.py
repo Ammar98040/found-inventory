@@ -1779,8 +1779,9 @@ def export_backup(request):
             # التقارير
             'daily_reports': json.loads(serializers.serialize('json', DailyReportArchive.objects.all())),
             
-            # بيانات المستخدمين والأنشطة
-            'user_profiles': json.loads(serializers.serialize('json', UserProfile.objects.all())),
+            # بيانات المستخدمين والأنشطة (استثناء admin من UserProfile لتجنب التكرار)
+            # نحذف UserProfile للمستخدمين الذين هم superuser (admin) لتجنب التكرار عند الاستيراد
+            'user_profiles': json.loads(serializers.serialize('json', UserProfile.objects.exclude(user__is_superuser=True))),
             'user_activity_logs': json.loads(serializers.serialize('json', UserActivityLog.objects.all())),
             
             # إحصائيات النسخ الاحتياطي
@@ -1792,7 +1793,7 @@ def export_backup(request):
                 'orders_count': Order.objects.count(),
                 'returns_count': ProductReturn.objects.count(),
                 'daily_reports_count': DailyReportArchive.objects.count(),
-                'user_profiles_count': UserProfile.objects.count(),
+                'user_profiles_count': UserProfile.objects.exclude(user__is_superuser=True).count(),  # عدد UserProfiles بدون admin
                 'user_activity_logs_count': UserActivityLog.objects.count(),
             }
         }
@@ -1846,6 +1847,7 @@ def import_backup(request):
         with transaction.atomic():
             if clear_existing:
                 # حذف جميع البيانات الموجودة بالترتيب الصحيح (تجنب أخطاء Foreign Key)
+                # ملاحظة: لا نحذف UserProfile للـ admin (superuser) لتجنب المشاكل
                 UserActivityLog.objects.all().delete()
                 AuditLog.objects.all().delete()
                 ProductReturn.objects.all().delete()
@@ -1854,7 +1856,7 @@ def import_backup(request):
                 Location.objects.all().delete()
                 Warehouse.objects.all().delete()
                 DailyReportArchive.objects.all().delete()
-                UserProfile.objects.all().delete()
+                UserProfile.objects.exclude(user__is_superuser=True).delete()  # حذف UserProfiles ما عدا admin
             
             # استيراد البيانات بالترتيب الصحيح (حسب العلاقات)
             # 1. البيانات الأساسية أولاً
@@ -1873,11 +1875,48 @@ def import_backup(request):
                 for obj in objects:
                     obj.save()
             
-            # 2. ملفات المستخدمين
+            # 2. ملفات المستخدمين (تخطي admin لتجنب التكرار)
             if 'user_profiles' in data:
-                objects = serializers.deserialize('json', json.dumps(data['user_profiles']))
-                for obj in objects:
-                    obj.save()
+                # فلترة UserProfiles لتخطي admin قبل deserialize
+                filtered_user_profiles = []
+                for profile_data in data['user_profiles']:
+                    # في JSON المستورد، user يتم تخزينه في fields كـ user أو user_id
+                    user_id = None
+                    if 'fields' in profile_data:
+                        # محاولة الحصول على user_id من fields
+                        if 'user' in profile_data['fields']:
+                            user_id = profile_data['fields']['user']
+                        elif 'user_id' in profile_data['fields']:
+                            user_id = profile_data['fields']['user_id']
+                    
+                    # التحقق من أن user_id موجود وأن المستخدم ليس superuser
+                    if user_id:
+                        try:
+                            user = User.objects.get(pk=user_id)
+                            # تخطي UserProfile للمستخدمين الذين هم superuser (admin)
+                            if user.is_superuser:
+                                logger.info(f'تم تخطي UserProfile للـ admin (user_id={user_id}) من النسخ الاحتياطي')
+                                continue
+                            # التحقق من عدم وجود UserProfile مسبقاً لتجنب التكرار
+                            if UserProfile.objects.filter(user_id=user_id).exists():
+                                logger.info(f'UserProfile موجود مسبقاً للمستخدم user_id={user_id}، تم تخطي الاستيراد')
+                                continue
+                        except User.DoesNotExist:
+                            logger.warning(f'المستخدم مع user_id={user_id} غير موجود، تم تخطي UserProfile')
+                            continue
+                    
+                    # إضافة UserProfile إلى القائمة المفلترة
+                    filtered_user_profiles.append(profile_data)
+                
+                # استيراد UserProfiles المفلترة فقط
+                if filtered_user_profiles:
+                    objects = serializers.deserialize('json', json.dumps(filtered_user_profiles))
+                    for obj in objects:
+                        try:
+                            obj.save()
+                        except Exception as e:
+                            logger.error(f'خطأ في استيراد UserProfile: {str(e)}', exc_info=True)
+                            continue
             
             # 3. سجلات العمليات
             if 'audit_logs' in data:
